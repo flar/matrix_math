@@ -38,6 +38,14 @@ class Constant implements Term {
   final double value;
 
   const Constant(this.value);
+  static Constant forDouble(double v) {
+    if (v == 0.0) return zero;
+    if (v == 1.0) return one;
+    if (v == -1.0) return neg_one;
+    if (v.isInfinite) return (v < 0) ? neg_inf : pos_inf;
+    if (v.isNaN) return nan;
+    return Constant(v);
+  }
 
   @override bool isNegative() => value < 0.0;
   @override bool negatesGracefully() => true;
@@ -115,39 +123,17 @@ class Negation implements Term {
 class FactorAccumulator {
   List<Term> numerators = [];
   List<Term> denominators;
-  bool isNeg = false;
-  Term numSpecial;
-  Term denSpecial;
-
-  Term combineSpecial(Term t, Term special) {
-    if (special == null) return t;
-    if (t == nan || special == nan) return nan;
-    if (t == neg_inf) {
-      isNeg = !isNeg;
-      t = pos_inf;
-    }
-    if (t == zero && special == pos_inf) return nan;
-    if (t == pos_inf && special == zero) return nan;
-    return t;
-  }
-
-  void handleSpecial(Term t, bool isInverted) {
-    if (isInverted) {
-      denSpecial = combineSpecial(t, denSpecial);
-    } else {
-      numSpecial = combineSpecial(t, numSpecial);
-    }
-  }
+  double coefficient = 1.0;
 
   void accumulate(Term t, bool isInverted) {
-    if (t == one) {
-      return;
-    } else if (t == neg_one) {
-      isNeg = !isNeg;
-    } else if (t == zero || t == neg_inf || t == pos_inf || t == nan) {
-      handleSpecial(t, isInverted);
+    if (t is Constant) {
+      if (isInverted) {
+        coefficient /= t.value;
+      } else {
+        coefficient *= t.value;
+      }
     } else if (t is Negation) {
-      isNeg = !isNeg;
+      coefficient = -coefficient;
       accumulate(t.negated, isInverted);
     } else if (t is Product) {
       for (var f in t.factors) accumulate(f, isInverted);
@@ -155,7 +141,6 @@ class FactorAccumulator {
       accumulate(t.numerator, isInverted);
       accumulate(t.denominator, !isInverted);
     } else {
-      if (t.isNegative()) isNeg = !isNeg;
       if (isInverted) {
         denominators ??= [];
         denominators.add(t);
@@ -174,31 +159,50 @@ class FactorAccumulator {
       }
       if (Negation.equalsNegated(n, t)) {
         numerators.removeAt(i);
-        isNeg = !isNeg;
+        coefficient = -coefficient;
         return true;
       }
     }
     return false;
   }
 
-  Term _forList(List<Term> terms) {
+  static Term _forList(double coefficient, List<Term> terms) {
     if (terms.length == 0) {
-      return one;
+      return Constant.forDouble(coefficient);
     } else if (terms.length == 1) {
-      return terms[0];
-    } else {
-      return Product(terms);
+      if (coefficient == 1.0) return terms[0];
+      if (coefficient == -1.0) return terms[0].negate();
     }
+    if (coefficient != 1.0 && coefficient != -1.0) {
+      terms.insert(0, Constant.forDouble(coefficient));
+    }
+    Term product = distribute(terms);
+    if (coefficient == -1.0) product = product.negate();
+    return product;
+  }
+
+  static Term distribute(List<Term> terms) {
+    for (int i = 0; i < terms.length; i++) {
+      Term term = terms[i];
+      if (term is Sum) {
+        List<Term> distributed = [];
+        for (var dterm in term.addends) {
+          distributed.add(Product.mulList([
+            ...terms.sublist(0, i),
+            dterm,
+            ...terms.sublist(i + 1),
+          ]));
+        }
+        return Sum.add(distributed);
+      }
+    }
+    return Product(terms);
   }
 
   Term getResult() {
-    if (numSpecial == nan || denSpecial == nan) return nan;
-    if (numSpecial == pos_inf && denSpecial == zero) return nan;
-    if (numSpecial == zero) return zero;
-    if (denSpecial == pos_inf) return zero;
-    if (numSpecial == pos_inf || denSpecial == 0) {
-      return isNeg ? neg_inf : pos_inf;
-    }
+    if (coefficient.isNaN) return nan;
+    if (coefficient.isInfinite) return (coefficient < 0) ? neg_inf : pos_inf;
+    if (coefficient == 0.0) return zero;
     if (denominators != null) {
       int keep = 0;
       for (int i = 0; i < denominators.length; i++) {
@@ -208,14 +212,12 @@ class FactorAccumulator {
       }
       if (keep > 0) {
         denominators.length = keep;
-        Term ret = Division(_forList(numerators), _forList(denominators));
-        if (isNeg) ret = ret.negate();
-        return ret;
+        Term num = _forList(coefficient, numerators);
+        Term den = _forList(1.0,         denominators);
+        return Division(num, den);
       }
     }
-    Term ret = _forList(numerators);
-    if (isNeg) ret = ret.negate();
-    return ret;
+    return _forList(coefficient, numerators);
   }
 }
 
@@ -269,7 +271,26 @@ class Product implements Term {
     return Negation.negation(this);
   }
 
-  @override bool equals(Term other) => false;
+  @override bool equals(Term other) {
+    if (other is Product) {
+      List<Term> oFactors = other.factors;
+      if (oFactors.length != factors.length) return false;
+      List<bool> used = List.filled(factors.length, false);
+      for (var term in oFactors) {
+        bool foundIt = false;
+        for (int i = 0; i < factors.length; i++) {
+          if (!used[i] && term.equals(factors[i])) {
+            used[i] = foundIt = true;
+            break;
+          }
+        }
+        if (!foundIt) return false;
+      }
+      return true;
+    }
+    return false;
+  }
+
   @override String toString() {
     String ret = '';
     bool prevWasUnknown = false;
@@ -328,11 +349,10 @@ class Division implements Term {
 
   @override
   Term negate() {
-    if (denominator.negatesGracefully()) {
-      return Division(numerator, denominator.negate());
-    } else {
+    if (numerator.negatesGracefully()) {
       return Division(numerator.negate(), denominator);
     }
+    return Division(numerator, denominator.negate());
   }
 
   @override
@@ -343,7 +363,78 @@ class Division implements Term {
   }
 
   @override bool isNegative() => numerator.isNegative() != denominator.isNegative();
-  @override String toString() => '($numerator)/($denominator)';
+  @override String toString() => '$numerator/$denominator';
+}
+
+class TermAccumulator {
+  List<Term> terms = [];
+  double constant = 0.0;
+
+  Term combineDivisions(Division first, Division second, bool secondNegated) {
+    if (!first.denominator.equals(second.denominator)) {
+      if (!Negation.equalsNegated(first.denominator, second.denominator)) {
+        return null;
+      }
+      secondNegated = !secondNegated;
+    }
+    Term secondNum = second.numerator;
+    if (secondNegated) secondNum = secondNum.negate();
+    return Division(Sum.add([first.numerator, secondNum]), first.denominator);
+  }
+
+  void accumulate(Term term, bool isNegated) {
+    if (term is Constant) {
+      if (isNegated) {
+        constant -= term.value;
+      } else {
+        constant += term.value;
+      }
+    } else if (term is Negation) {
+      accumulate(term.negated, !isNegated);
+    } else if (term is Sum) {
+      for (var addend in term.addends) {
+        accumulate(addend, isNegated);
+      }
+    } else {
+      for (int i = 0; i < terms.length; i++) {
+        if (isNegated) {
+          if (!term.equals(terms[i])) continue;
+        } else {
+          if (!Negation.equalsNegated(terms[i], term)) continue;
+        }
+//        print('canceling $term against ${terms[i]}  (isNegated = $isNegated)');
+        terms.removeAt(i);
+        return;
+      }
+      if (term is Division) {
+        for (int i = 0; i < terms.length; i++) {
+          if (terms[i] is Division) {
+            Term combined = combineDivisions(terms[i], term, isNegated);
+            if (combined != null) {
+              terms[i] = combined;
+              return;
+            }
+          }
+        }
+      }
+      if (isNegated) term = term.negate();
+      terms.add(term);
+    }
+  }
+
+  Term getResult() {
+    if (constant.isNaN) return nan;
+    if (constant.isInfinite) return (constant < 0) ? neg_inf : pos_inf;
+    if (constant != 0.0) {
+      terms.add(Constant.forDouble(constant));
+    }
+    if (terms.length == 0) {
+      return zero;
+    } else if (terms.length == 1) {
+      return terms[0];
+    }
+    return Sum(terms);
+  }
 }
 
 class Sum implements Term {
@@ -352,69 +443,16 @@ class Sum implements Term {
   Sum(this.addends);
 
   static Term add(List<Term> terms) {
-    List<Term> newList = [];
-    bool hasPosInf = false;
-    bool hasNegInf = false;
-    double constantSum = 0.0;
-    for (var term in terms) {
-      if (term == nan) return nan;
-      if (term == zero) {
-      } else if (term == pos_inf) {
-        hasPosInf = true;
-      } else if (term == neg_inf) {
-        hasNegInf = true;
-      } else if (term is Constant) {
-        constantSum += term.value;
-      } else if (term is Negation && term.negated is Constant) {
-        Negation n = term;
-        Constant c = n.negated;
-        constantSum -= c.value;
-      } else {
-        for (int i = 0; i < newList.length; i++) {
-          if (Negation.equalsNegated(newList[i], term)) {
-            newList.removeAt(i);
-            continue;
-          }
-        }
-        newList.add(term);
-      }
-    }
-    if (hasPosInf) {
-      return hasNegInf ? nan : pos_inf;
-    } else if (hasNegInf) {
-      return neg_inf;
-    }
-    if (constantSum.isInfinite) {
-      return constantSum > 0.0 ? pos_inf : neg_inf;
-    }
-    if (constantSum.isNaN) {
-      return nan;
-    }
-    if (constantSum != 0.0) {
-      if (constantSum == 1.0) {
-        newList.add(one);
-      } else if (constantSum == -1.0) {
-        newList.add(neg_one);
-      } else {
-        newList.add(Constant(constantSum));
-      }
-    }
-    if (newList.length == 0) return zero;
-    if (newList.length == 1) return newList[0];
-    return Sum(newList);
+    TermAccumulator accumulator = TermAccumulator();
+    for (var term in terms) accumulator.accumulate(term, false);
+    return accumulator.getResult();
   }
 
   static Term sub(Term first, Term second) {
-    if (first == nan || second == nan) return nan;
-    if (first == pos_inf) return second == pos_inf ? nan : first;
-    if (first == neg_inf) return second == neg_inf ? nan : first;
-    if (second == pos_inf) return neg_inf;
-    if (second == neg_inf) return pos_inf;
-    if (first == second) return zero;
-    if (first == zero) return second.negate();
-    if (second == zero) return first;
-    if (first is Constant && second is Constant) return Constant(first.value - second.value);
-    return Sum([first, second.negate()]);
+    TermAccumulator accumulator = TermAccumulator();
+    accumulator.accumulate(first, false);
+    accumulator.accumulate(second, true);
+    return accumulator.getResult();
   }
 
   @override
@@ -446,7 +484,26 @@ class Sum implements Term {
   }
 
   @override bool isNegative() => false;
-  @override bool equals(Term other) => false;
+  @override bool equals(Term other) {
+    if (other is Sum) {
+      List<Term> oAddends = other.addends;
+      if (oAddends.length != addends.length) return false;
+      List<bool> used = List.filled(addends.length, false);
+      for (var term in oAddends) {
+        bool foundIt = false;
+        for (int i = 0; i < addends.length; i++) {
+          if (!used[i] && term.equals(addends[i])) {
+            used[i] = foundIt = true;
+            break;
+          }
+        }
+        if (!foundIt) return false;
+      }
+      return true;
+    }
+    return false;
+  }
+
   @override
   String toString() {
     String ret = '(';
@@ -470,6 +527,24 @@ class Vector4 {
   final Term xVal, yVal, zVal, wVal;
 
   Vector4([this.xVal = zero, this.yVal = zero, this.zVal = zero, this.wVal = one]);
+
+  Vector4 add(Vector4 other) {
+    return Vector4(
+      Sum.add([this.xVal, other.xVal]),
+      Sum.add([this.yVal, other.yVal]),
+      Sum.add([this.zVal, other.zVal]),
+      Sum.add([this.wVal, other.wVal]),
+    );
+  }
+
+  Vector4 sub(Vector4 other) {
+    return Vector4(
+      Sum.sub(this.xVal, other.xVal),
+      Sum.sub(this.yVal, other.yVal),
+      Sum.sub(this.zVal, other.zVal),
+      Sum.sub(this.wVal, other.wVal),
+    );
+  }
 
   Vector4 normalize() => Vector4(
       Division.div(xVal, wVal),
@@ -576,7 +651,7 @@ class Matrix4x4 {
     for (int col = 0; col < 4; col++) {
       Term m = minor(0, col);
       if ((col & 1) == 1) m.negate();
-      terms.add(m);
+      terms.add(Product.mul(elements[0][col], m));
     }
     return Sum.add(terms);
   }
@@ -624,10 +699,41 @@ class Matrix4x4 {
   }
 }
 
-const Xm = Unknown('X');
-const Ym = Unknown('Y');
+const X = Unknown('X');
+const Y = Unknown('Y');
+
+void printOps(Constant v1, Constant v2) {
+  double v1val = v1.value;
+  double v2val = v2.value;
+  print('$v1val + $v2val = ${v1val + v2val}');
+  print('$v1val - $v2val = ${v1val - v2val}');
+  print('$v1val * $v2val = ${v1val * v2val}');
+  print('$v1val / $v2val = ${v1val / v2val}');
+  print('$v1val == $v2val = ${v1val == v2val}');
+  print('$v1val != $v2val = ${v1val != v2val}');
+  print('$v1val >= $v2val = ${v1val >= v2val}');
+  print('$v1val <= $v2val = ${v1val <= v2val}');
+  print('$v1val > $v2val = ${v1val > v2val}');
+  print('$v1val < $v2val = ${v1val < v2val}');
+}
+
+void testMath() {
+  printOps(one, zero);
+  printOps(neg_one, zero);
+  printOps(pos_inf, zero);
+  printOps(neg_inf, zero);
+  printOps(pos_inf, neg_inf);
+  printOps(neg_inf, pos_inf);
+  printOps(pos_inf, pos_inf);
+  printOps(nan, nan);
+  printOps(nan, one);
+  printOps(one, nan);
+  printOps(nan, pos_inf);
+  printOps(neg_inf, nan);
+}
 
 void main() {
+//  testMath();
   Matrix4x4 m4 = Matrix4x4([
     [ a, b, c, d, ],
     [ e, f, g, h, ],
@@ -640,19 +746,24 @@ void main() {
   m4.printOut();
   print(m4.determinant());
   m4a.printOut();
-  print(m4a.determinant());
-  Vector4 Pm = Vector4(Xm, Ym);
+//  print(m4a.determinant());
+  Vector4 Pm = Vector4(X, Y);
+  if (Pm.zVal != zero) print("z not zero!");
+  if (Product.mul(Pm.zVal, m4.elements[0][2]) != zero) print("product not zero!");
   Vector4 Ps = m4.transform(Pm);
   Term Xsn = Division.div(Ps.xVal, Ps.wVal);
   Term Ysn = Division.div(Ps.yVal, Ps.wVal);
   Vector4 Psm0 = m4a.transform(Vector4(Xsn, Ysn, zero));
   Vector4 Psm1 = m4a.transform(Vector4(Xsn, Ysn, one));
-  print(Pm);
-  print(Pm.normalize());
-  print(Ps);
-  print(Ps.normalize());
-  print(Psm0);
-  print(Psm1);
-  print(Sum.sub(Psm1.xVal, Psm0.xVal));
-  print(Sum.sub(Psm1.yVal, Psm0.yVal));
+  print('');
+  print('Pm     = $Pm');
+  print('Pmnorm = ${Pm.normalize()}');
+  print('Ps     = $Ps');
+  print('Psnorm = ${Ps.normalize()}');
+  print('');
+  print('Prev(Z=0)   = $Psm0');
+  print('');
+  print('Prev(Z=1)   = $Psm1');
+  print('');
+  print('Prev(Z1-Z0) = ${Psm1.sub(Psm0)}');
 }
