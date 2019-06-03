@@ -34,6 +34,23 @@ const n = Unknown('n');
 const o = Unknown('o');
 const p = Unknown('p');
 
+const ap = Unknown('a`');
+const bp = Unknown('b`');
+const cp = Unknown('c`');
+const dp = Unknown('d`');
+const ep = Unknown('e`');
+const fp = Unknown('f`');
+const gp = Unknown('g`');
+const hp = Unknown('h`');
+const ip = Unknown('i`');
+const jp = Unknown('j`');
+const kp = Unknown('k`');
+const lp = Unknown('l`');
+const mp = Unknown('m`');
+const np = Unknown('n`');
+const op = Unknown('o`');
+const pp = Unknown('p`');
+
 class Constant implements Term {
   final double value;
 
@@ -377,9 +394,10 @@ class TermAccumulator {
       }
       secondNegated = !secondNegated;
     }
-    Term secondNum = second.numerator;
-    if (secondNegated) secondNum = secondNum.negate();
-    return Division(Sum.add([first.numerator, secondNum]), first.denominator);
+    Term num = secondNegated
+        ? Sum.sub(first.numerator, second.numerator)
+        : Sum.add([first.numerator, second.numerator]);
+    return (num == zero) ? num : Division.div(num, first.denominator);
   }
 
   void accumulate(Term term, bool isNegated) {
@@ -755,6 +773,9 @@ void main() {
   Term Ysn = Division.div(Ps.yVal, Ps.wVal);
   Vector4 Psm0 = m4a.transform(Vector4(Xsn, Ysn, zero));
   Vector4 Psm1 = m4a.transform(Vector4(Xsn, Ysn, one));
+  Vector4 Psm0n = Psm0.normalize();
+  Vector4 Psm1n = Psm1.normalize();
+  Vector4 Psmd = Psm1.normalize().sub(Psm0.normalize());
   print('');
   print('Pm     = $Pm');
   print('Pmnorm = ${Pm.normalize()}');
@@ -766,4 +787,39 @@ void main() {
   print('Prev(Z=1)   = $Psm1');
   print('');
   print('Prev(Z1-Z0) = ${Psm1.sub(Psm0)}');
+  print('');
+  print('Z1n-Z0n     = ${Psmd}');
+  Term t0 = Division.div(
+    Psm0n.zVal.negate(),
+    Sum.sub(Psm1n.zVal, Psm0n.zVal),
+  );
+  Term Zm0zm1w = Product.mul(Psm0.zVal, Psm1.wVal);
+  Term Zm1zm0w = Product.mul(Psm1.zVal, Psm0.wVal);
+  Term t0alt = Division.div(Zm0zm1w, Sum.sub(Zm0zm1w, Zm1zm0w));
+  print('');
+  print('t0 = $t0');
+  print('');
+  print('t0alt = $t0alt');
+  print('');
+  print('Zm1zm0w - Zm0zm1w = ${Sum.sub(Zm1zm0w, Zm0zm1w)}');
+
+  Matrix4x4 m4i = Matrix4x4([
+    [ ap, bp, cp, dp, ],
+    [ ep, fp, gp, hp, ],
+    [ ip, jp, kp, lp, ],
+    [ mp, np, op, pp, ],
+  ]);
+  Vector4 Psi0 = m4i.transform(Vector4(X, Y, zero));
+  Vector4 Psi1 = m4i.transform(Vector4(X, Y, one));
+  Vector4 Psi0n = Psi0.normalize();
+  Vector4 Psi1n = Psi1.normalize();
+  Vector4 Psid = Psi1.normalize().sub(Psi0.normalize());
+  print('');
+  print('Inv(Z=0)   = $Psi0');
+  print('');
+  print('Inv(Z=1)   = $Psi1');
+  print('');
+  print('Inv(Z1-Z0) = ${Psi1.sub(Psi0)}');
+  print('');
+  print('iZ1n-iZ0n  = ${Psid}');
 }
