@@ -813,7 +813,7 @@ void main() {
   Vector4 Psi1 = m4i.transform(Vector4(X, Y, one));
   Vector4 Psi0n = Psi0.normalize();
   Vector4 Psi1n = Psi1.normalize();
-  Vector4 Psid = Psi1.normalize().sub(Psi0.normalize());
+  Vector4 Psid = Psi1n.sub(Psi0n);
   print('');
   print('Inv(Z=0)   = $Psi0');
   print('');
