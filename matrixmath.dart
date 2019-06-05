@@ -213,7 +213,26 @@ class FactorAccumulator {
         return Sum.add(distributed);
       }
     }
+    terms.sort(sortOrder);
     return Product(terms);
+  }
+
+  static int sortOrder(Term a, Term b) {
+    if (a is Constant) {
+      if (b is Constant) return a.value.compareTo(b.value);
+      return -1;
+    }
+    if (b is Constant) {
+      return 1;
+    }
+    if (a is Unknown) {
+      if (b is Unknown) return a.name.compareTo(b.name);
+      return -1;
+    }
+    if (b is Unknown) {
+      return 1;
+    }
+    return 0;
   }
 
   Term getResult() {
@@ -231,6 +250,9 @@ class FactorAccumulator {
         denominators.length = keep;
         Term num = _forList(coefficient, numerators);
         Term den = _forList(1.0,         denominators);
+        if (num is Sum && den is Sum) {
+
+        }
         return Division(num, den);
       }
     }
@@ -451,7 +473,60 @@ class TermAccumulator {
     } else if (terms.length == 1) {
       return terms[0];
     }
+    terms.sort(sortOrder);
     return Sum(terms);
+  }
+
+  static int compareProductUnknown(Unknown a, Product b) {
+    for (var factor in b.factors) {
+      if (factor is Unknown) return a.name.compareTo(factor.name);
+      if (factor is! Constant) return -1;
+    }
+    return -1;
+  }
+
+  static int compareProducts(Product a, Product b) {
+    int ai = 0, bi = 0;
+    while (ai < a.factors.length && bi < b.factors.length) {
+      if (a.factors[ai] is! Unknown) ai++;
+      else if (b.factors[bi] is! Unknown) bi++;
+      else {
+        Unknown au = a.factors[ai++];
+        Unknown bu = b.factors[bi++];
+        int comp = au.name.compareTo(bu.name);
+        if (comp != 0) return comp;
+      }
+    }
+    return 0;
+  }
+
+  static int sortOrder(Term a, Term b) {
+    if (a is Negation) return sortOrder(a.negated, b);
+    if (b is Negation) return sortOrder(a, b.negated);
+    if (a is Constant) {
+      if (b is Constant) return a.value.compareTo(b.value);
+      return 1;
+    }
+    if (b is Constant) {
+      return -1;
+    }
+    if (a is Unknown) {
+      if (b is Unknown) return a.name.compareTo(b.name);
+      if (b is Product) return compareProductUnknown(a, b);
+      return -1;
+    }
+    if (b is Unknown) {
+      if (a is Product) return -compareProductUnknown(b, a);
+      return 1;
+    }
+    if (a is Product) {
+      if (b is Product) return compareProducts(a, b);
+      return -1;
+    }
+    if (b is Product) {
+      return 1;
+    }
+    return 0;
   }
 }
 
@@ -486,19 +561,10 @@ class Sum implements Term {
 
   @override
   Term negate() {
-    if (negatesGracefully()) {
-      List<Term> newList = [];
-      for (var term in addends) {
-        term = term.negate();
-        if (term.isNegative()) {
-          newList.add(term);
-        } else {
-          newList.insert(0, term);
-        }
-      }
-      return Sum(newList);
-    }
-    return Negation.negation(this);
+    return Sum.add([
+      for (var term in addends)
+        term.negate(),
+    ]);
   }
 
   @override bool isNegative() => false;
@@ -564,6 +630,24 @@ class Vector4 {
     );
   }
 
+  Vector4 multiplyFactor(Term factor) {
+    return Vector4(
+      Product.mul(xVal, factor),
+      Product.mul(yVal, factor),
+      Product.mul(zVal, factor),
+      Product.mul(wVal, factor),
+    );
+  }
+
+  Vector4 divideFactor(Term factor) {
+    return Vector4(
+      Division.div(xVal, factor),
+      Division.div(yVal, factor),
+      Division.div(zVal, factor),
+      Division.div(wVal, factor),
+    );
+  }
+
   Vector4 normalize() => Vector4(
       Division.div(xVal, wVal),
       Division.div(yVal, wVal),
@@ -586,39 +670,39 @@ class Matrix4x4 {
   }
 
   Vector4 transform(Vector4 vec) {
-    vec = vec.normalize();
     Term xN = vec.xVal;
     Term yN = vec.yVal;
     Term zN = vec.zVal;
+    Term wN = vec.wVal;
     return Vector4(
       Sum.add([
         Product.mul(xN, elements[0][0]),
         Product.mul(yN, elements[0][1]),
         Product.mul(zN, elements[0][2]),
-                        elements[0][3],
+        Product.mul(wN, elements[0][3]),
       ]),
       Sum.add([
         Product.mul(xN, elements[1][0]),
         Product.mul(yN, elements[1][1]),
         Product.mul(zN, elements[1][2]),
-                        elements[1][3],
+        Product.mul(wN, elements[1][3]),
       ]),
       Sum.add([
         Product.mul(xN, elements[2][0]),
         Product.mul(yN, elements[2][1]),
         Product.mul(zN, elements[2][2]),
-                        elements[2][3],
+        Product.mul(wN, elements[2][3]),
       ]),
       Sum.add([
         Product.mul(xN, elements[3][0]),
         Product.mul(yN, elements[3][1]),
         Product.mul(zN, elements[3][2]),
-                        elements[3][3],
+        Product.mul(wN, elements[3][3]),
       ]),
     );
   }
 
-  Matrix4x4 mul(Term factor) {
+  Matrix4x4 multiplyFactor(Term factor) {
     factor = factor;
     if (factor == one) return this;
     return Matrix4x4(
@@ -631,7 +715,7 @@ class Matrix4x4 {
     );
   }
 
-  Matrix4x4 div(Term factor) {
+  Matrix4x4 divideFactor(Term factor) {
     factor = factor;
     if (factor == one) return this;
     return Matrix4x4(
@@ -642,6 +726,26 @@ class Matrix4x4 {
         ],
       ],
     );
+  }
+
+  Matrix4x4 multiplyMatrix(Matrix4x4 other) {
+    return Matrix4x4(
+        [
+          for (int row = 0; row < 4; row++) [
+            for (int col = 0; col < 4; col++)
+              crossMultiply(this, row, other, col),
+          ],
+        ]
+    );
+  }
+
+  static Term crossMultiply(Matrix4x4 rowMatrix, int row, Matrix4x4 colMatrix, int col) {
+    return Sum.add([
+      Product.mul(rowMatrix.elements[row][0], colMatrix.elements[0][col]),
+      Product.mul(rowMatrix.elements[row][1], colMatrix.elements[1][col]),
+      Product.mul(rowMatrix.elements[row][2], colMatrix.elements[2][col]),
+      Product.mul(rowMatrix.elements[row][3], colMatrix.elements[3][col]),
+    ]);
   }
 
   Term determinant2x2(int row1, int row2, int col1, int col2) {
@@ -668,7 +772,7 @@ class Matrix4x4 {
     List<Term> terms = [];
     for (int col = 0; col < 4; col++) {
       Term m = minor(0, col);
-      if ((col & 1) == 1) m.negate();
+      if ((col & 1) == 1) m = m.negate();
       terms.add(Product.mul(elements[0][col], m));
     }
     return Sum.add(terms);
@@ -681,7 +785,7 @@ class Matrix4x4 {
           for (int col = 0; col < 4; col++)
             minor(row, col),
         ]
-      ]
+      ],
     );
   }
 
@@ -690,10 +794,10 @@ class Matrix4x4 {
       [
         for (int row = 0; row < 4; row++) [
           for (int col = 0; col < 4; col++)
-            ((row^col&1) == 0)
+            (((row^col)&1) == 0)
                 ? elements[row][col]
                 : elements[row][col].negate(),
-        ]
+        ],
       ]
     );
   }
@@ -701,19 +805,21 @@ class Matrix4x4 {
   Matrix4x4 transpose() {
     return Matrix4x4(
       [
-        for (int col = 0; col < 4; col++) [
-          for (int row = 0; row < 4; row++)
-            elements[row][col],
-        ]
+        for (int row = 0; row < 4; row++) [
+          for (int col = 0; col < 4; col++)
+            elements[col][row],
+        ],
       ]
     );
   }
-  void printOut() {
+
+  void printOut(String label) {
     var m = elements;
-    print('[ ${m[0][0]}  ${m[0][1]}  ${m[0][2]}  ${m[0][3]} ]');
-    print('[ ${m[1][0]}  ${m[1][1]}  ${m[1][2]}  ${m[1][3]} ]');
-    print('[ ${m[2][0]}  ${m[2][1]}  ${m[2][2]}  ${m[2][3]} ]');
-    print('[ ${m[3][0]}  ${m[3][1]}  ${m[3][2]}  ${m[3][3]} ]');
+    print('$label =');
+    print('  [ ${m[0][0]}  ${m[0][1]}  ${m[0][2]}  ${m[0][3]} ]');
+    print('  [ ${m[1][0]}  ${m[1][1]}  ${m[1][2]}  ${m[1][3]} ]');
+    print('  [ ${m[2][0]}  ${m[2][1]}  ${m[2][2]}  ${m[2][3]} ]');
+    print('  [ ${m[3][0]}  ${m[3][1]}  ${m[3][2]}  ${m[3][3]} ]');
   }
 }
 
@@ -761,65 +867,80 @@ void main() {
   Matrix4x4 m4m = m4.minors();
   Matrix4x4 m4c = m4m.cofactors();
   Matrix4x4 m4a = m4c.transpose();
-  m4.printOut();
-  print(m4.determinant());
-  m4a.printOut();
+  m4.printOut('M4');
+  print('|M4| = ${m4.determinant()}');
+  print('');
+  m4m.printOut('M4 minors');
+  print('');
+  m4c.printOut('M4 cofactors');
+  print('');
+  m4a.printOut('M4 adjugate');
+  print('');
+//  This takes a while to calculate:
 //  print(m4a.determinant());
+//  print('');
   Vector4 Pm = Vector4(X, Y);
   if (Pm.zVal != zero) print("z not zero!");
   if (Product.mul(Pm.zVal, m4.elements[0][2]) != zero) print("product not zero!");
   Vector4 Ps = m4.transform(Pm);
-  Term Xsn = Division.div(Ps.xVal, Ps.wVal);
-  Term Ysn = Division.div(Ps.yVal, Ps.wVal);
-  Vector4 Psm0 = m4a.transform(Vector4(Xsn, Ysn, zero));
-  Vector4 Psm1 = m4a.transform(Vector4(Xsn, Ysn, one));
-  Vector4 Psm0n = Psm0.normalize();
-  Vector4 Psm1n = Psm1.normalize();
-  Vector4 Psmd = Psm1.normalize().sub(Psm0.normalize());
-  print('');
+  Vector4 Psi = m4a.transform(Ps);
   print('Pm     = $Pm');
   print('Pmnorm = ${Pm.normalize()}');
   print('Ps     = $Ps');
   print('Psnorm = ${Ps.normalize()}');
   print('');
-  print('Prev(Z=0)   = $Psm0');
+  print('Ps inverse = $Psi');
+  Vector4 Pmxdet = Pm.multiplyFactor(m4.determinant());
+  print('(Ps inverse) - (Pm * |m4|) = ${Psi.sub(Pmxdet)}');
   print('');
-  print('Prev(Z=1)   = $Psm1');
-  print('');
-  print('Prev(Z1-Z0) = ${Psm1.sub(Psm0)}');
-  print('');
-  print('Z1n-Z0n     = ${Psmd}');
-  Term t0 = Division.div(
-    Psm0n.zVal.negate(),
-    Sum.sub(Psm1n.zVal, Psm0n.zVal),
-  );
-  Term Zm0zm1w = Product.mul(Psm0.zVal, Psm1.wVal);
-  Term Zm1zm0w = Product.mul(Psm1.zVal, Psm0.wVal);
-  Term t0alt = Division.div(Zm0zm1w, Sum.sub(Zm0zm1w, Zm1zm0w));
-  print('');
-  print('t0 = $t0');
-  print('');
-  print('t0alt = $t0alt');
-  print('');
-  print('Zm1zm0w - Zm0zm1w = ${Sum.sub(Zm1zm0w, Zm0zm1w)}');
-
-  Matrix4x4 m4i = Matrix4x4([
-    [ ap, bp, cp, dp, ],
-    [ ep, fp, gp, hp, ],
-    [ ip, jp, kp, lp, ],
-    [ mp, np, op, pp, ],
-  ]);
-  Vector4 Psi0 = m4i.transform(Vector4(X, Y, zero));
-  Vector4 Psi1 = m4i.transform(Vector4(X, Y, one));
-  Vector4 Psi0n = Psi0.normalize();
-  Vector4 Psi1n = Psi1.normalize();
-  Vector4 Psid = Psi1n.sub(Psi0n);
-  print('');
-  print('Inv(Z=0)   = $Psi0');
-  print('');
-  print('Inv(Z=1)   = $Psi1');
-  print('');
-  print('Inv(Z1-Z0) = ${Psi1.sub(Psi0)}');
-  print('');
-  print('iZ1n-iZ0n  = ${Psid}');
+  Matrix4x4 unity = m4.multiplyMatrix(m4a).divideFactor(m4.determinant());
+  unity.printOut('M x Minverse');
+//  Term Xsn = Division.div(Ps.xVal, Ps.wVal);
+//  Term Ysn = Division.div(Ps.yVal, Ps.wVal);
+//  Vector4 Psm0 = m4a.transform(Vector4(Xsn, Ysn, zero));
+//  Vector4 Psm1 = m4a.transform(Vector4(Xsn, Ysn, one));
+//  Vector4 Psm0n = Psm0.normalize();
+//  Vector4 Psm1n = Psm1.normalize();
+//  Vector4 Psmd = Psm1.normalize().sub(Psm0.normalize());
+//  print('');
+//  print('Prev(Z=0)   = $Psm0');
+//  print('');
+//  print('Prev(Z=1)   = $Psm1');
+//  print('');
+//  print('Prev(Z1-Z0) = ${Psm1.sub(Psm0)}');
+//  print('');
+//  print('Z1n-Z0n     = ${Psmd}');
+//  Term t0 = Division.div(
+//    Psm0n.zVal.negate(),
+//    Sum.sub(Psm1n.zVal, Psm0n.zVal),
+//  );
+//  Term Zm0zm1w = Product.mul(Psm0.zVal, Psm1.wVal);
+//  Term Zm1zm0w = Product.mul(Psm1.zVal, Psm0.wVal);
+//  Term t0alt = Division.div(Zm0zm1w, Sum.sub(Zm0zm1w, Zm1zm0w));
+//  print('');
+//  print('t0 = $t0');
+//  print('');
+//  print('t0alt = $t0alt');
+//  print('');
+//  print('Zm1zm0w - Zm0zm1w = ${Sum.sub(Zm1zm0w, Zm0zm1w)}');
+//
+//  Matrix4x4 m4i = Matrix4x4([
+//    [ ap, bp, cp, dp, ],
+//    [ ep, fp, gp, hp, ],
+//    [ ip, jp, kp, lp, ],
+//    [ mp, np, op, pp, ],
+//  ]);
+//  Vector4 Psi0 = m4i.transform(Vector4(X, Y, zero));
+//  Vector4 Psi1 = m4i.transform(Vector4(X, Y, one));
+//  Vector4 Psi0n = Psi0.normalize();
+//  Vector4 Psi1n = Psi1.normalize();
+//  Vector4 Psid = Psi1n.sub(Psi0n);
+//  print('');
+//  print('Inv(Z=0)   = $Psi0');
+//  print('');
+//  print('Inv(Z=1)   = $Psi1');
+//  print('');
+//  print('Inv(Z1-Z0) = ${Psi1.sub(Psi0)}');
+//  print('');
+//  print('iZ1n-iZ0n  = ${Psid}');
 }
