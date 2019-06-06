@@ -165,7 +165,7 @@ void main() {
   print('Alternate Method:');
   print('');
 
-  Matrix3x3 M3 = M4.extract3x3(skipRow: 2, skipCol: 2);
+  Matrix3x3 M3 = M4.without(skipRow: 2, skipCol: 2);
   Matrix3x3 M3m = M3.minors();
   Matrix3x3 M3c = M3m.cofactors();
   Matrix3x3 M3a = M3c.transpose();
@@ -191,4 +191,7 @@ void main() {
   print('');
   Matrix3x3 M3u = M3.multiplyMatrix(M3a).divideFactor(M3det);
   M3u.printOut('(M4 x M4a) / |M4|');
+  Vector3 P3malt = M3a.transform(P3s.normalize());
+  print('');
+  print('P3m alternate inverse = $P3malt');
 }

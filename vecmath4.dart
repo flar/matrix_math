@@ -210,7 +210,7 @@ class Matrix4x4 {
     );
   }
 
-  Matrix3x3 extract3x3({int skipRow, int skipCol}) {
+  Matrix3x3 without({int skipRow, int skipCol}) {
     return Matrix3x3(
       [
         for (int rowIndex in _allBut(skipRow)) [

@@ -46,7 +46,7 @@ class Vector3 {
   );
 
   @override
-  String toString() => 'Vector4($xVal, $yVal, $wVal)';
+  String toString() => 'Vector3($xVal, $yVal, $wVal)';
 }
 
 class Matrix3x3 {
