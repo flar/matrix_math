@@ -235,6 +235,17 @@ class FactorAccumulator {
     return 0;
   }
 
+  static Term divideSums(Sum numerator, Sum denominator) {
+    Term numCommon = numerator.commonFactor();
+    Term denCommon = denominator.commonFactor();
+    if (numCommon == one && denCommon == one) return null;
+    Term numCross = Product.mul(numerator, denCommon);
+    Term denCross = Product.mul(denominator, numCommon);
+    return (numCross.equals(denCross))
+        ? Division.div(numCommon, denCommon)
+        : null;
+  }
+
   Term getResult() {
     if (coefficient.isNaN) return nan;
     if (coefficient.isInfinite) return (coefficient < 0) ? neg_inf : pos_inf;
@@ -251,7 +262,8 @@ class FactorAccumulator {
         Term num = _forList(coefficient, numerators);
         Term den = _forList(1.0,         denominators);
         if (num is Sum && den is Sum) {
-
+          Term simplified = divideSums(num, den);
+          if (simplified != null) return simplified;
         }
         return Division(num, den);
       }
@@ -546,6 +558,44 @@ class Sum implements Term {
     accumulator.accumulate(first, false);
     accumulator.accumulate(second, true);
     return accumulator.getResult();
+  }
+
+  Term commonFactor() {
+    List<Term> common;
+    for (var term in addends) {
+      if (term is Negation) {
+        Negation nTerm = term;
+        term = nTerm.negated;
+      }
+      if (term is Unknown) {
+        if (common != null && !common.contains(term)) return one;
+        common = [term];
+      } else if (term is Product) {
+        List<Term> oldCommon = common;
+        common = [];
+        for (var factor in term.factors) {
+          if (factor is Unknown) {
+            if (oldCommon == null) {
+              common.add(factor);
+            } else {
+              for (var cTerm in oldCommon) {
+                if (cTerm.equals(factor)) {
+                  common.add(factor);
+                  oldCommon.remove(cTerm);
+                  break;
+                }
+              }
+            }
+          }
+        }
+        if (common.length == 0) break;
+      } else {
+        return one;
+      }
+    }
+    if (common == null || common.length == 0) return one;
+    if (common.length == 1) return common[0];
+    return Product(common);
   }
 
   @override
@@ -868,13 +918,14 @@ void main() {
   Matrix4x4 m4c = m4m.cofactors();
   Matrix4x4 m4a = m4c.transpose();
   m4.printOut('M4');
-  print('|M4| = ${m4.determinant()}');
+  Term m4det = m4.determinant();
+  print('|M4| = $m4det');
   print('');
-  m4m.printOut('M4 minors');
+  m4m.printOut('minors(M4)');
   print('');
-  m4c.printOut('M4 cofactors');
+  m4c.printOut('cofactors(M4)');
   print('');
-  m4a.printOut('M4 adjugate');
+  m4a.printOut('M4a = adjugate(M4)');
   print('');
 //  This takes a while to calculate:
 //  print(m4a.determinant());
@@ -889,12 +940,12 @@ void main() {
   print('Ps     = $Ps');
   print('Psnorm = ${Ps.normalize()}');
   print('');
-  print('Ps inverse = $Psi');
-  Vector4 Pmxdet = Pm.multiplyFactor(m4.determinant());
-  print('(Ps inverse) - (Pm * |m4|) = ${Psi.sub(Pmxdet)}');
+  print('Ps * M4a = $Psi');
   print('');
-  Matrix4x4 unity = m4.multiplyMatrix(m4a).divideFactor(m4.determinant());
-  unity.printOut('M x Minverse');
+  print('(Ps * M4a) normalized = ${Psi.normalize()}');
+  print('');
+  Matrix4x4 unity = m4.multiplyMatrix(m4a).divideFactor(m4det);
+  unity.printOut('(M4 x M4a) / |M4|');
 //  Term Xsn = Division.div(Ps.xVal, Ps.wVal);
 //  Term Ysn = Division.div(Ps.yVal, Ps.wVal);
 //  Vector4 Psm0 = m4a.transform(Vector4(Xsn, Ysn, zero));
