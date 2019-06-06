@@ -2,6 +2,7 @@ import 'term.dart';
 import 'constants.dart';
 import 'products.dart';
 import 'sums.dart';
+import 'vecmath3.dart';
 
 class Vector4 {
   final Term xVal, yVal, zVal, wVal;
@@ -102,12 +103,12 @@ class Matrix4x4 {
     factor = factor;
     if (factor == one) return this;
     return Matrix4x4(
-        [
-          for (var row in elements) [
-            for (var term in row)
-              Product.mul(term, factor),
-          ],
-        ]
+      [
+        for (var row in elements) [
+          for (var term in row)
+            Product.mul(term, factor),
+        ],
+      ],
     );
   }
 
@@ -126,12 +127,12 @@ class Matrix4x4 {
 
   Matrix4x4 multiplyMatrix(Matrix4x4 other) {
     return Matrix4x4(
-        [
-          for (int row = 0; row < 4; row++) [
-            for (int col = 0; col < 4; col++)
-              crossMultiply(this, row, other, col),
-          ],
-        ]
+      [
+        for (int row = 0; row < 4; row++) [
+          for (int col = 0; col < 4; col++)
+            crossMultiply(this, row, other, col),
+        ],
+      ],
     );
   }
 
@@ -146,7 +147,7 @@ class Matrix4x4 {
 
   Term determinant2x2(int row1, int row2, int col1, int col2) {
     return Sum.sub(Product.mul(elements[row1][col1], elements[row2][col2]),
-        Product.mul(elements[row1][col2], elements[row2][col1]));
+                   Product.mul(elements[row1][col2], elements[row2][col1]));
   }
 
   List<int> _allBut(int rc) => [...[0,1,2,3].where((i) => i != rc)];
@@ -187,25 +188,36 @@ class Matrix4x4 {
 
   Matrix4x4 cofactors() {
     return Matrix4x4(
-        [
-          for (int row = 0; row < 4; row++) [
-            for (int col = 0; col < 4; col++)
-              (((row^col)&1) == 0)
-                  ? elements[row][col]
-                  : elements[row][col].negate(),
-          ],
-        ]
+      [
+        for (int row = 0; row < 4; row++) [
+          for (int col = 0; col < 4; col++)
+            (((row^col)&1) == 0)
+                ? elements[row][col]
+                : elements[row][col].negate(),
+        ],
+      ],
     );
   }
 
   Matrix4x4 transpose() {
     return Matrix4x4(
-        [
-          for (int row = 0; row < 4; row++) [
-            for (int col = 0; col < 4; col++)
-              elements[col][row],
-          ],
-        ]
+      [
+        for (int row = 0; row < 4; row++) [
+          for (int col = 0; col < 4; col++)
+            elements[col][row],
+        ],
+      ],
+    );
+  }
+
+  Matrix3x3 extract3x3({int skipRow, int skipCol}) {
+    return Matrix3x3(
+      [
+        for (int rowIndex in _allBut(skipRow)) [
+          for (int colIndex in _allBut(skipCol))
+            elements[rowIndex][colIndex],
+        ],
+      ],
     );
   }
 

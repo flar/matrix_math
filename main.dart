@@ -1,8 +1,9 @@
 import 'term.dart';
-import 'vecmath4.dart';
 import 'unknowns.dart';
 import 'constants.dart';
 import 'products.dart';
+import 'vecmath3.dart';
+import 'vecmath4.dart';
 
 const a = Unknown('a');
 const b = Unknown('b');
@@ -73,44 +74,44 @@ void testMath() {
 
 void main() {
 //  testMath();
-  Matrix4x4 m4 = Matrix4x4([
+  Matrix4x4 M4 = Matrix4x4([
     [ a, b, c, d, ],
     [ e, f, g, h, ],
     [ i, j, k, l, ],
     [ m, n, o, p, ],
   ]);
-  Matrix4x4 m4m = m4.minors();
-  Matrix4x4 m4c = m4m.cofactors();
-  Matrix4x4 m4a = m4c.transpose();
-  m4.printOut('M4');
-  Term m4det = m4.determinant();
-  print('|M4| = $m4det');
+  Matrix4x4 M4m = M4.minors();
+  Matrix4x4 M4c = M4m.cofactors();
+  Matrix4x4 M4a = M4c.transpose();
+  M4.printOut('M4');
+  Term M4det = M4.determinant();
+  print('|M4| = $M4det');
   print('');
-  m4m.printOut('minors(M4)');
+  M4m.printOut('minors(M4)');
   print('');
-  m4c.printOut('cofactors(M4)');
+  M4c.printOut('cofactors(minors(M4))');
   print('');
-  m4a.printOut('M4a = adjugate(M4)');
+  M4a.printOut('M4a = adjugate(M4) = transpose(cofactors(minors(M4)))');
   print('');
 //  This takes a while to calculate:
 //  print(m4a.determinant());
 //  print('');
-  Vector4 Pm = Vector4(X, Y);
-  if (Pm.zVal != zero) print("z not zero!");
-  if (Product.mul(Pm.zVal, m4.elements[0][2]) != zero) print("product not zero!");
-  Vector4 Ps = m4.transform(Pm);
-  Vector4 Psi = m4a.transform(Ps);
-  print('Pm     = $Pm');
-  print('Pmnorm = ${Pm.normalize()}');
-  print('Ps     = $Ps');
-  print('Psnorm = ${Ps.normalize()}');
+  Vector4 P4m = Vector4(X, Y);
+  if (P4m.zVal != zero) print("z not zero!");
+  if (Product.mul(P4m.zVal, M4.elements[0][2]) != zero) print("product not zero!");
+  Vector4 P4s = M4.transform(P4m);
+  Vector4 P4si = M4a.transform(P4s);
+  print('P4m      = $P4m');
+  print('P4m norm = ${P4m.normalize()}');
+  print('P4s      = $P4s');
+  print('P4s norm = ${P4s.normalize()}');
   print('');
-  print('Ps * M4a = $Psi');
+  print('P4s * M4a = $P4si');
   print('');
-  print('(Ps * M4a) normalized = ${Psi.normalize()}');
+  print('(P4s * M4a) normalized = ${P4si.normalize()}');
   print('');
-  Matrix4x4 unity = m4.multiplyMatrix(m4a).divideFactor(m4det);
-  unity.printOut('(M4 x M4a) / |M4|');
+  Matrix4x4 M4u = M4.multiplyMatrix(M4a).divideFactor(M4det);
+  M4u.printOut('(M4 x M4a) / |M4|');
 //  Term Xsn = Division.div(Ps.xVal, Ps.wVal);
 //  Term Ysn = Division.div(Ps.yVal, Ps.wVal);
 //  Vector4 Psm0 = m4a.transform(Vector4(Xsn, Ysn, zero));
@@ -159,4 +160,35 @@ void main() {
 //  print('Inv(Z1-Z0) = ${Psi1.sub(Psi0)}');
 //  print('');
 //  print('iZ1n-iZ0n  = ${Psid}');
+
+  print('');
+  print('Alternate Method:');
+  print('');
+
+  Matrix3x3 M3 = M4.extract3x3(skipRow: 2, skipCol: 2);
+  Matrix3x3 M3m = M3.minors();
+  Matrix3x3 M3c = M3m.cofactors();
+  Matrix3x3 M3a = M3c.transpose();
+  M3.printOut('M3');
+  Term M3det = M3.determinant();
+  print('|M3| = $M3det');
+  print('');
+  M3m.printOut('minors(M3)');
+  M3c.printOut('cofactors(minors(M3))');
+  M3a.printOut('M3a = adjugate(M3) = transpose(cofactors(minors(M3)))');
+  Vector3 P3m = Vector3(X, Y);
+  Vector3 P3s = M3.transform(P3m);
+  Vector3 P3si = M3a.transform(P3s);
+  print('');
+  print('P3m      = $P3m');
+  print('P3m norm = ${P3m.normalize()}');
+  print('P3s      = $P3s');
+  print('P3s norm = ${P3s.normalize()}');
+  print('');
+  print('P3s * M3a = $P3si');
+  print('');
+  print('(P3s * M3a) normalized = ${P3si.normalize()}');
+  print('');
+  Matrix3x3 M3u = M3.multiplyMatrix(M3a).divideFactor(M3det);
+  M3u.printOut('(M4 x M4a) / |M4|');
 }
