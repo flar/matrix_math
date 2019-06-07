@@ -3,11 +3,13 @@ import 'constants.dart';
 import 'products.dart';
 import 'sums.dart';
 
+/// A 3-value homogeneous coordinate representing X, Y, and a homogeneous factor W.
 class Vector3 {
   final Term xVal, yVal, wVal;
 
   Vector3([this.xVal = zero, this.yVal = zero, this.wVal = one]);
 
+  /// Add this Vector3 to the other and return a new result object.
   Vector3 add(Vector3 other) {
     return Vector3(
       Sum.add([this.xVal, other.xVal]),
@@ -16,6 +18,7 @@ class Vector3 {
     );
   }
 
+  /// Subtract the other Vector3 from this Vector3 and return a new result object.
   Vector3 sub(Vector3 other) {
     return Vector3(
       Sum.sub(this.xVal, other.xVal),
@@ -24,6 +27,7 @@ class Vector3 {
     );
   }
 
+  /// Multiply the coordinates of this Vector3 by a common Term and return a new result object.
   Vector3 multiplyFactor(Term factor) {
     return Vector3(
       Product.mul(xVal, factor),
@@ -32,6 +36,7 @@ class Vector3 {
     );
   }
 
+  /// Divide the coordinates of this Vector3 by a common Term and return a new result object.
   Vector3 divideFactor(Term factor) {
     return Vector3(
       Division.div(xVal, factor),
@@ -40,6 +45,7 @@ class Vector3 {
     );
   }
 
+  /// Return a new vector with the normalized homogeneous version of this Vector3.
   Vector3 normalize() => Vector3(
     Division.div(xVal, wVal),
     Division.div(yVal, wVal),
@@ -49,6 +55,7 @@ class Vector3 {
   String toString() => 'Vector3($xVal, $yVal, $wVal)';
 }
 
+/// A 3x3 coordinate matrix
 class Matrix3x3 {
   final List<List<Term>> elements;
 
@@ -59,6 +66,12 @@ class Matrix3x3 {
         elements[2].length == 3);
   }
 
+  /// Transform a Vector3 by this matrix by post-multiplying it as a column vector and
+  /// return a new result object:
+  ///
+  /// [ mat[0][0] mat[0][1] mat[0][2] ]   [ vec.xVal ]
+  /// [ mat[1][0] mat[1][1] mat[1][2] ] x [ vec.yVal ]
+  /// [ mat[2][0] mat[2][1] mat[2][2] ]   [ vec.wVal ]
   Vector3 transform(Vector3 vec) {
     Term xN = vec.xVal;
     Term yN = vec.yVal;
@@ -82,6 +95,7 @@ class Matrix3x3 {
     );
   }
 
+  /// Multiply all elements of this matrix by a common Term factor and return a new result object.
   Matrix3x3 multiplyFactor(Term factor) {
     factor = factor;
     if (factor == one) return this;
@@ -95,6 +109,7 @@ class Matrix3x3 {
     );
   }
 
+  /// Divide all elements of this matrix by a common Term factor and return a new result object.
   Matrix3x3 divideFactor(Term factor) {
     factor = factor;
     if (factor == one) return this;
@@ -108,6 +123,11 @@ class Matrix3x3 {
     );
   }
 
+  /// Multiply this matrix by another matrix and return a new result object:
+  ///
+  /// [ mat[0][0] mat[0][1] mat[0][2] ]   [ other[0][0] other[0][1] other[0][2] ]
+  /// [ mat[1][0] mat[1][1] mat[1][2] ] x [ other[1][0] other[1][1] other[1][2] ]
+  /// [ mat[2][0] mat[2][1] mat[2][2] ]   [ other[2][0] other[2][1] other[2][2] ]
   Matrix3x3 multiplyMatrix(Matrix3x3 other) {
     return Matrix3x3(
       [
@@ -119,6 +139,12 @@ class Matrix3x3 {
     );
   }
 
+  /// Cross-multiply a row from the first matrix with a column from the second
+  /// and return a Term object for the result.
+  ///
+  /// (rowMatrix[row][0] * colMatrix[0][col] +
+  ///  rowMatrix[row][1] * colMatrix[1][col] +
+  ///  rowMatrix[row][2] * colMatrix[2][col])
   static Term crossMultiply(Matrix3x3 rowMatrix, int row, Matrix3x3 colMatrix, int col) {
     return Sum.add([
       Product.mul(rowMatrix.elements[row][0], colMatrix.elements[0][col]),
@@ -127,6 +153,10 @@ class Matrix3x3 {
     ]);
   }
 
+  /// Return a 2x2 determinant consisting of the four elements of this matrix taken as:
+  ///
+  /// [ mat[row1][col1]  mat[row1][col2] ]
+  /// [ mat[row2][col1]  mat[row2][col2] ]
   Term determinant2x2(int row1, int row2, int col1, int col2) {
     return Sum.sub(Product.mul(elements[row1][col1], elements[row2][col2]),
                    Product.mul(elements[row1][col2], elements[row2][col1]));
@@ -134,12 +164,14 @@ class Matrix3x3 {
 
   List<int> _allBut(int rc) => [...[0,1,2].where((i) => i != rc)];
 
+  /// Return the minor for the indicated row and column.
   Term minor(int row, int col) {
     var r = _allBut(row);
     var c = _allBut(col);
     return determinant2x2(r[0], r[1], c[0], c[1]);
   }
 
+  /// Return the determinant of this matrix.
   Term determinant() {
     List<Term> terms = [];
     for (int col = 0; col < 3; col++) {
@@ -150,6 +182,7 @@ class Matrix3x3 {
     return Sum.add(terms);
   }
 
+  /// Return a new matrix consisting of the minors for every element in this matrix.
   Matrix3x3 minors() {
     return Matrix3x3(
       [
@@ -161,6 +194,7 @@ class Matrix3x3 {
     );
   }
 
+  /// Return a new matrix consisting of the cofactors for every element in this matrix.
   Matrix3x3 cofactors() {
     return Matrix3x3(
       [
@@ -174,6 +208,7 @@ class Matrix3x3 {
     );
   }
 
+  /// Return a new matrix consisting of the elements of this matrix transposed.
   Matrix3x3 transpose() {
     return Matrix3x3(
       [
@@ -185,6 +220,8 @@ class Matrix3x3 {
     );
   }
 
+  /// Print out the matrix in a format that might be pretty if the terms are short and
+  /// similar in length.
   void printOut(String label) {
     var m = elements;
     print('$label =');

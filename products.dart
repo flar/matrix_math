@@ -1,25 +1,35 @@
 import 'term.dart';
 import 'constants.dart';
 import 'unknowns.dart';
-import 'negation.dart';
 import 'sums.dart';
 
+/// A helper class to accumulate lists of factors for the numerator (and optional denominator)
+/// of a bunch of Term objects that are being multiplied together.
+///
+/// This class will deal with a number of simplification operations including cancelling
+/// common factors in the numerator and denominator and consolidating constants into the
+/// coefficient term.
 class FactorAccumulator {
   List<Term> numerators = [];
   List<Term> denominators;
   double coefficient = 1.0;
 
+  /// Accumulate a single double value into the coefficient (with optional inversion).
+  void accumulateValue(double val, bool isInverted) {
+    if (isInverted) {
+      coefficient /= val;
+    } else {
+      coefficient *= val;
+    }
+  }
+
+  /// Accumulate an arbitrary Term object into either the numerator or the denominator
+  /// depending on the isInverted boolean.
   void accumulate(Term t, bool isInverted) {
     if (t is Constant) {
-      if (isInverted) {
-        coefficient /= t.value;
-      } else {
-        coefficient *= t.value;
-      }
-    } else if (t is Negation) {
-      coefficient = -coefficient;
-      accumulate(t.negated, isInverted);
+      accumulateValue(t.value, isInverted);
     } else if (t is Product) {
+      accumulateValue(t.coefficient, isInverted);
       for (var f in t.factors) accumulate(f, isInverted);
     } else if (t is Division) {
       accumulate(t.numerator, isInverted);
@@ -34,6 +44,10 @@ class FactorAccumulator {
     }
   }
 
+  /// Eliminate any duplicate copy of the given Term object from the list of numerator
+  /// factors and return a boolean indicating the success of the elimination.
+  ///
+  /// Called only for factors being considered for the denominator.
   bool _cancelTerm(Term t) {
     for (int i = 0; i < numerators.length; i++) {
       Term n = numerators[i];
@@ -41,15 +55,12 @@ class FactorAccumulator {
         numerators.removeAt(i);
         return true;
       }
-      if (Negation.equalsNegated(n, t)) {
-        numerators.removeAt(i);
-        coefficient = -coefficient;
-        return true;
-      }
     }
     return false;
   }
 
+  /// Return an optimized result for a list of factors, including reduction to a constant
+  /// or a single term, and distributing any addition Term objects into the remaining factors.
   static Term _forList(double coefficient, List<Term> terms) {
     if (terms.length == 0) {
       return Constant.forDouble(coefficient);
@@ -57,23 +68,20 @@ class FactorAccumulator {
       if (coefficient == 1.0) return terms[0];
       if (coefficient == -1.0) return terms[0].negate();
     }
-    if (coefficient != 1.0 && coefficient != -1.0) {
-      terms.insert(0, Constant.forDouble(coefficient));
-    }
-    Term product = distribute(terms);
-    if (coefficient == -1.0) product = product.negate();
-    return product;
+    return distribute(coefficient, terms);
   }
 
-  static Term distribute(List<Term> terms) {
+  /// Look for a factor that is a Sum object and distribute it into the other factors
+  /// to enable a simplified form in which we can cancel terms more effectively.
+  static Term distribute(double coefficient, List<Term> terms) {
     for (int i = 0; i < terms.length; i++) {
       Term term = terms[i];
       if (term is Sum) {
         List<Term> distributed = [];
-        for (var dterm in term.addends) {
-          distributed.add(Product.mulList([
+        for (var addend in term.addends) {
+          distributed.add(Product.mulList(coefficient, [
             ...terms.sublist(0, i),
-            dterm,
+            addend,
             ...terms.sublist(i + 1),
           ]));
         }
@@ -81,15 +89,22 @@ class FactorAccumulator {
       }
     }
     terms.sort(sortOrder);
-    return Product(terms);
+    return Product(
+      coefficient: coefficient,
+      factors: terms,
+    );
   }
 
+  /// A comparator function for ordering the factor objects for printing in a way that
+  /// makes the results easier to correlate for human eyes.
   static int sortOrder(Term a, Term b) {
     if (a is Constant) {
+      // TODO: Should not happen now that we have broken out the coefficient?
       if (b is Constant) return a.value.compareTo(b.value);
       return -1;
     }
     if (b is Constant) {
+      // TODO: Should not happen now that we have broken out the coefficient?
       return 1;
     }
     if (a is Unknown) {
@@ -102,6 +117,18 @@ class FactorAccumulator {
     return 0;
   }
 
+  /// Check a numerator and a denominator that are summations of other terms for a
+  /// common factor and eliminate it.
+  ///
+  /// The current implementation is very simple in that it first looks for common
+  /// factors within the numerator and denominator and sees if the remainders of
+  /// the two lists are identical.  Rather than divide out the common factor, the
+  /// implementation cross-multiplies the numerator by the common factor in the
+  /// denominator and vice versa and then tests those products for equality.
+  ///
+  /// If the "remainders" (or the "cross-multiplied factors") are identical, this
+  /// division reduces to the division of the two common factors determined in the
+  /// first step.
   static Term divideSums(Sum numerator, Sum denominator) {
     Term numCommon = numerator.commonFactor();
     Term denCommon = denominator.commonFactor();
@@ -113,10 +140,16 @@ class FactorAccumulator {
         : null;
   }
 
+  /// Return the Term object representing the sum total of this entire multiply or divide
+  /// operation, simplifying as much as possible.
+  ///
+  /// Current simplifications include the natural simplifications that occurred during
+  /// factor accumulation and the additional simplifications that come from special
+  /// coefficients that overwhelm the product (0, nan, infinities) and the simplifications
+  /// determined by the divideSums() method.
   Term getResult() {
-    if (coefficient.isNaN) return nan;
-    if (coefficient.isInfinite) return (coefficient < 0) ? neg_inf : pos_inf;
-    if (coefficient == 0.0) return zero;
+    Term special = Constant.isSpecialCoefficient(coefficient);
+    if (special != null) return special;
     if (denominators != null) {
       int keep = 0;
       for (int i = 0; i < denominators.length; i++) {
@@ -139,17 +172,23 @@ class FactorAccumulator {
   }
 }
 
+/// A Term object representing the multiplication of a number of other Term objects.
 class Product implements Term {
+  final double coefficient;
   final List<Term> factors;
 
-  Product(this.factors);
+  Product({this.coefficient = 1.0, this.factors});
 
-  static Term mulList(List<Term> terms) {
+  /// Multiply a list of Term objects with an additional coefficient and return the
+  /// Term object representing the simplified result.
+  static Term mulList(double coefficient, List<Term> terms) {
     FactorAccumulator accumulator = FactorAccumulator();
+    accumulator.accumulateValue(coefficient, false);
     for (var term in terms) accumulator.accumulate(term, false);
     return accumulator.getResult();
   }
 
+  /// Multiply 2 Term objects and return the Term object representing the simplified result.
   static Term mul(Term first, Term second) {
     FactorAccumulator accumulator = FactorAccumulator();
     accumulator.accumulate(first, false);
@@ -159,7 +198,7 @@ class Product implements Term {
 
   @override
   bool isNegative() {
-    bool isNeg = false;
+    bool isNeg = coefficient < 0.0;
     for (var factor in factors) {
       if (factor.isNegative()) isNeg = !isNeg;
     }
@@ -176,41 +215,72 @@ class Product implements Term {
 
   @override
   Term negate() {
-    for (int i = 0; i < factors.length; i++) {
-      Term term = factors[i];
-      if (term.negatesGracefully()) {
-        return Product([
-          ...factors.sublist(0, i),
-          term.negate(),
-          ...factors.sublist(i+1),
-        ]);
+    if (coefficient > 0) {
+      for (int i = 0; i < factors.length; i++) {
+        Term term = factors[i];
+        if (term.negatesGracefully()) {
+          return Product(
+            coefficient: coefficient,
+            factors: [
+              ...factors.sublist(0, i),
+              term.negate(),
+              ...factors.sublist(i+1),
+            ],
+          );
+        }
       }
     }
-    return Negation.negation(this);
+    if (coefficient == -1.0 && factors.length == 1) {
+      return factors[0];
+    }
+    return Product(coefficient: -coefficient, factors: factors);
+  }
+
+  @override Term addDirect(Term other, bool isNegated) {
+    if (other is Product && equalFactors(this.factors, other.factors)) {
+      double newCoefficient = Constant.addOrSub(this.coefficient, other.coefficient, isNegated);
+      Term special = Constant.isSpecialCoefficient(newCoefficient);
+      if (special != null) return special;
+      return Product(coefficient: newCoefficient, factors: this.factors);
+    }
+    return null;
   }
 
   @override bool equals(Term other) {
     if (other is Product) {
-      List<Term> oFactors = other.factors;
-      if (oFactors.length != factors.length) return false;
-      List<bool> used = List.filled(factors.length, false);
-      for (var term in oFactors) {
-        bool foundIt = false;
-        for (int i = 0; i < factors.length; i++) {
-          if (!used[i] && term.equals(factors[i])) {
-            used[i] = foundIt = true;
-            break;
-          }
-        }
-        if (!foundIt) return false;
-      }
-      return true;
+      return coefficient == other.coefficient && equalFactors(factors, other.factors);
     }
     return false;
   }
 
+  /// Compare two lists of factors to determine if they are identical.
+  static bool equalFactors(List<Term> factors1, List<Term> factors2) {
+    if (factors1.length != factors2.length) return false;
+    List<Term> factors2Copy = [...factors2];
+    for (var term in factors1) {
+      bool foundIt = false;
+      for (int i = 0; i < factors2Copy.length; i++) {
+        if (term.equals(factors2Copy[i])) {
+          factors2Copy.removeAt(i);
+          foundIt = true;
+          break;
+        }
+      }
+      if (!foundIt) return false;
+    }
+    return factors2Copy.length == 0;
+  }
+
+  @override bool startsWithMinus() => coefficient < 0.0;
   @override String toString() {
-    String ret = '';
+    String ret;
+    if (coefficient == -1.0) {
+      ret = '-';
+    } else if (coefficient == 1.0) {
+      ret = '';
+    } else {
+      ret = coefficient.toString();
+    }
     bool prevWasUnknown = false;
     String mul = '';
     for (Term term in factors) {
@@ -232,32 +302,21 @@ class Product implements Term {
   }
 }
 
+/// A Term object representing the division of 2 other Term objects.
+///
+/// TODO: This object could potentially be integrated into the Product object.
 class Division implements Term {
   final Term numerator;
   final Term denominator;
 
   Division(this.numerator, this.denominator);
 
+  /// Divide 2 Terms and return the simplified quotient.
   static Term div(Term num, Term den) {
     FactorAccumulator accumulator = FactorAccumulator();
     accumulator.accumulate(num, false);
     accumulator.accumulate(den, true);
     return accumulator.getResult();
-  }
-
-  static bool isInverse(Term first, Term second) {
-    if (first is Division) {
-      if (second is Division) {
-        return (first.numerator.equals(second.denominator) &&
-            first.denominator.equals(second.numerator));
-      }
-      return (first.numerator == one &&
-          first.denominator.equals(second));
-    } else if (second is Division) {
-      return (second.numerator == one &&
-          second.denominator.equals(first));
-    }
-    return false;
   }
 
   @override
@@ -274,6 +333,22 @@ class Division implements Term {
   }
 
   @override
+  Term addDirect(Term other, isNegated) {
+    if (other is Division && this.denominator.equals(other.denominator)) {
+      Term newNumerator = this.numerator.addDirect(other.numerator, isNegated);
+      if (newNumerator != null) {
+        if (newNumerator == zero || newNumerator == nan ||
+            newNumerator == pos_inf || newNumerator == neg_inf)
+        {
+          return newNumerator;
+        }
+        return Division(newNumerator, this.denominator);
+      }
+    }
+    return null;
+  }
+
+  @override
   bool equals(Term term) {
     return term is Division &&
         term.numerator.equals(this.numerator) &&
@@ -281,5 +356,6 @@ class Division implements Term {
   }
 
   @override bool isNegative() => numerator.isNegative() != denominator.isNegative();
+  @override bool startsWithMinus() => numerator.startsWithMinus();
   @override String toString() => '$numerator/$denominator';
 }
