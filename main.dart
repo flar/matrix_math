@@ -2,6 +2,7 @@ import 'term.dart';
 import 'unknowns.dart';
 import 'constants.dart';
 import 'products.dart';
+import 'sums.dart';
 import 'vecmath3.dart';
 import 'vecmath4.dart';
 
@@ -112,54 +113,34 @@ void main() {
   print('');
   Matrix4x4 M4u = M4.multiplyMatrix(M4a).divideFactor(M4det);
   M4u.printOut('(M4 x M4a) / |M4|');
-//  Term Xsn = Division.div(Ps.xVal, Ps.wVal);
-//  Term Ysn = Division.div(Ps.yVal, Ps.wVal);
-//  Vector4 Psm0 = m4a.transform(Vector4(Xsn, Ysn, zero));
-//  Vector4 Psm1 = m4a.transform(Vector4(Xsn, Ysn, one));
-//  Vector4 Psm0n = Psm0.normalize();
-//  Vector4 Psm1n = Psm1.normalize();
-//  Vector4 Psmd = Psm1.normalize().sub(Psm0.normalize());
-//  print('');
-//  print('Prev(Z=0)   = $Psm0');
-//  print('');
-//  print('Prev(Z=1)   = $Psm1');
-//  print('');
-//  print('Prev(Z1-Z0) = ${Psm1.sub(Psm0)}');
-//  print('');
-//  print('Z1n-Z0n     = ${Psmd}');
-//  Term t0 = Division.div(
-//    Psm0n.zVal.negate(),
-//    Sum.sub(Psm1n.zVal, Psm0n.zVal),
-//  );
-//  Term Zm0zm1w = Product.mul(Psm0.zVal, Psm1.wVal);
-//  Term Zm1zm0w = Product.mul(Psm1.zVal, Psm0.wVal);
-//  Term t0alt = Division.div(Zm0zm1w, Sum.sub(Zm0zm1w, Zm1zm0w));
-//  print('');
-//  print('t0 = $t0');
-//  print('');
-//  print('t0alt = $t0alt');
-//  print('');
-//  print('Zm1zm0w - Zm0zm1w = ${Sum.sub(Zm1zm0w, Zm0zm1w)}');
-//
-//  Matrix4x4 m4i = Matrix4x4([
-//    [ ap, bp, cp, dp, ],
-//    [ ep, fp, gp, hp, ],
-//    [ ip, jp, kp, lp, ],
-//    [ mp, np, op, pp, ],
-//  ]);
-//  Vector4 Psi0 = m4i.transform(Vector4(X, Y, zero));
-//  Vector4 Psi1 = m4i.transform(Vector4(X, Y, one));
-//  Vector4 Psi0n = Psi0.normalize();
-//  Vector4 Psi1n = Psi1.normalize();
-//  Vector4 Psid = Psi1n.sub(Psi0n);
-//  print('');
-//  print('Inv(Z=0)   = $Psi0');
-//  print('');
-//  print('Inv(Z=1)   = $Psi1');
-//  print('');
-//  print('Inv(Z1-Z0) = ${Psi1.sub(Psi0)}');
-//  print('');
-//  print('iZ1n-iZ0n  = ${Psid}');
+
+  Vector4 P4sz0 = Vector4(X, Y, zero);
+  Vector4 P4sz1 = Vector4(X, Y, one);
+  Vector4 P4mz0 = M4a.transform(P4sz0);
+  Vector4 P4mz1 = M4a.transform(P4sz1);
+  print('P4s(Z=0) = $P4sz0');
+  print('P4s(Z=1) = $P4sz1');
+  print('');
+  print('P4m(Z=0) = $P4mz0');
+  print('');
+  print('P4m(Z=1) = $P4mz1');
+  print('');
+  print('P4m(Z=1) - P4m(Z=0) = ${P4mz1.sub(P4mz0)}');
+
+  // P4mz0.z = Z0 + (t=0)*(Z1 - Z0) = Z0
+  // P4mz1.z = Z0 + (t=1)*(Z1 - Z0) = Z0 + Z1-Z0 = Z1
+  // 0 = Z0 + (t=t0)*(Z1 - Z0)
+  // t0 = -Z0 / (Z1 - Z0)
+  // t0 = Z0 / (Z0 - Z1)
+
+  Vector4 P4mz0n = P4mz0.normalize();
+  Vector4 P4mz1n = P4mz1.normalize();
+  Term Z0 = P4mz0n.zVal;
+  Term Z1 = P4mz1n.zVal;
+  Term Z0mZ1 = Sum.sub(Z0, Z1);
+  Term t0 = Division.div(Z0, Z0mZ1);
+  print('');
+  print('t0 = $t0');
 
   print('');
   print('Alternate Method:');

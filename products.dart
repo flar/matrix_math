@@ -237,13 +237,18 @@ class Product implements Term {
   }
 
   @override Term addDirect(Term other, bool isNegated) {
+    double delta;
     if (other is Product && equalFactors(this.factors, other.factors)) {
-      double newCoefficient = Constant.addOrSub(this.coefficient, other.coefficient, isNegated);
-      Term special = Constant.isSpecialCoefficient(newCoefficient);
-      if (special != null) return special;
-      return Product(coefficient: newCoefficient, factors: this.factors);
+      delta = other.coefficient;
+    } else if (other is Unknown && this.factors.length == 1 && this.factors[0].equals(other)) {
+      delta = 1.0;
+    } else {
+      return null;
     }
-    return null;
+    double newCoefficient = Constant.addOrSub(this.coefficient, delta, isNegated);
+    Term special = Constant.isSpecialCoefficient(newCoefficient);
+    if (special != null) return special;
+    return Product(coefficient: newCoefficient, factors: this.factors);
   }
 
   @override bool equals(Term other) {
@@ -278,6 +283,8 @@ class Product implements Term {
       ret = '-';
     } else if (coefficient == 1.0) {
       ret = '';
+    } else if (coefficient == coefficient.toInt()) {
+      ret = coefficient.toInt().toString();
     } else {
       ret = coefficient.toString();
     }
