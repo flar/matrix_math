@@ -26,6 +26,7 @@ class Unknown implements Term {
         );
       }
     }
+    return null;
   }
   @override String toString() => name;
   @override bool startsWithMinus() => false;
