@@ -82,74 +82,7 @@ class TermAccumulator {
     } else if (terms.length == 1) {
       return terms[0];
     }
-    terms.sort(sortOrder);
     return Sum(terms);
-  }
-
-  /// Compare the single Unknown object to the factors of the Product Term object to
-  /// determine which should appear first in the String output.
-  ///
-  /// The list is sorted by the names of the Unknown terms so that similar terms will appear
-  /// in similar locations in any lists.
-  ///
-  /// The intention is to make the many summations more readable for human eyes.
-  static int compareProductUnknown(Unknown a, Product b) {
-    for (var factor in b.factors) {
-      if (factor is Unknown) return a.name.compareTo(factor.name);
-      if (factor is! Constant) return -1;
-    }
-    return -1;
-  }
-
-  /// Compare the factors of the Product Term objects to determine which should appear first in
-  /// the String output.
-  ///
-  /// The list is sorted by the names of the Unknown terms so that similar terms will appear
-  /// in similar locations in any lists.
-  ///
-  /// The intention is to make the many summations more readable for human eyes.
-  static int compareProducts(Product a, Product b) {
-    int ai = 0, bi = 0;
-    while (ai < a.factors.length && bi < b.factors.length) {
-      if (a.factors[ai] is! Unknown) ai++;
-      else if (b.factors[bi] is! Unknown) bi++;
-      else {
-        Unknown au = a.factors[ai++];
-        Unknown bu = b.factors[bi++];
-        int comp = au.name.compareTo(bu.name);
-        if (comp != 0) return comp;
-      }
-    }
-    return 0;
-  }
-
-  /// A Comparator method to create a (hopefully) pleasing ordering of the summation
-  /// terms when the object is converted to a string.
-  static int sortOrder(Term a, Term b) {
-    if (a is Constant) {
-      if (b is Constant) return a.value.compareTo(b.value);
-      return 1;
-    }
-    if (b is Constant) {
-      return -1;
-    }
-    if (a is Unknown) {
-      if (b is Unknown) return a.name.compareTo(b.name);
-      if (b is Product) return compareProductUnknown(a, b);
-      return -1;
-    }
-    if (b is Unknown) {
-      if (a is Product) return -compareProductUnknown(b, a);
-      return 1;
-    }
-    if (a is Product) {
-      if (b is Product) return compareProducts(a, b);
-      return -1;
-    }
-    if (b is Product) {
-      return 1;
-    }
-    return 0;
   }
 }
 
@@ -255,12 +188,81 @@ class Sum implements Term {
 
   @override Term addDirect(Term other, bool isNegated) => null;
 
+  /// Compare the single Unknown object to the factors of the Product Term object to
+  /// determine which should appear first in the String output.
+  ///
+  /// The list is sorted by the names of the Unknown terms so that similar terms will appear
+  /// in similar locations in any lists.
+  ///
+  /// The intention is to make the many summations more readable for human eyes.
+  static int _compareProductUnknown(Unknown a, Product b) {
+    for (var factor in b.factors) {
+      if (factor is Unknown) return a.name.compareTo(factor.name);
+      if (factor is! Constant) return -1;
+    }
+    return -1;
+  }
+
+  /// Compare the factors of the Product Term objects to determine which should appear first in
+  /// the String output.
+  ///
+  /// The list is sorted by the names of the Unknown terms so that similar terms will appear
+  /// in similar locations in any lists.
+  ///
+  /// The intention is to make the many summations more readable for human eyes.
+  static int _compareProducts(Product a, Product b) {
+    int ai = 0, bi = 0;
+    while (ai < a.factors.length && bi < b.factors.length) {
+      if (a.factors[ai] is! Unknown) ai++;
+      else if (b.factors[bi] is! Unknown) bi++;
+      else {
+        Unknown au = a.factors[ai++];
+        Unknown bu = b.factors[bi++];
+        int comp = au.name.compareTo(bu.name);
+        if (comp != 0) return comp;
+      }
+    }
+    return 0;
+  }
+
+  /// A Comparator method to create a (hopefully) pleasing ordering of the summation
+  /// terms when the object is converted to a string.
+  static int _sortOrder(Term a, Term b) {
+    if (a is Constant) {
+      if (b is Constant) return a.value.compareTo(b.value);
+      return 1;
+    }
+    if (b is Constant) {
+      return -1;
+    }
+    if (a is Unknown) {
+      if (b is Unknown) return a.name.compareTo(b.name);
+      if (b is Product) return _compareProductUnknown(a, b);
+      return -1;
+    }
+    if (b is Unknown) {
+      if (a is Product) return -_compareProductUnknown(b, a);
+      return 1;
+    }
+    if (a is Product) {
+      if (b is Product) return _compareProducts(a, b);
+      return -1;
+    }
+    if (b is Product) {
+      return 1;
+    }
+    return 0;
+  }
+
+  List<Term> __sortedAddends;
+  List<Term> get _sortedAddends => __sortedAddends ??= [...addends]..sort(_sortOrder);
+
   @override bool startsWithMinus() => false;
   @override
   String toString() {
     String ret = '(';
     String add = '';
-    for (Term term in addends) {
+    for (Term term in _sortedAddends) {
       if (!term.startsWithMinus()) ret += add;
       ret += '$term';
       add = '+';

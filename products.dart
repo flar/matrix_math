@@ -88,33 +88,10 @@ class FactorAccumulator {
         return Sum.add(distributed);
       }
     }
-    terms.sort(sortOrder);
     return Product(
       coefficient: coefficient,
       factors: terms,
     );
-  }
-
-  /// A comparator function for ordering the factor objects for printing in a way that
-  /// makes the results easier to correlate for human eyes.
-  static int sortOrder(Term a, Term b) {
-    if (a is Constant) {
-      // TODO: Should not happen now that we have broken out the coefficient?
-      if (b is Constant) return a.value.compareTo(b.value);
-      return -1;
-    }
-    if (b is Constant) {
-      // TODO: Should not happen now that we have broken out the coefficient?
-      return 1;
-    }
-    if (a is Unknown) {
-      if (b is Unknown) return a.name.compareTo(b.name);
-      return -1;
-    }
-    if (b is Unknown) {
-      return 1;
-    }
-    return 0;
   }
 
   /// Check a numerator and a denominator that are summations of other terms for a
@@ -276,6 +253,31 @@ class Product implements Term {
     return factors2Copy.length == 0;
   }
 
+  /// A comparator function for ordering the factor objects for printing in a way that
+  /// makes the results easier to correlate for human eyes.
+  static int _sortOrder(Term a, Term b) {
+    if (a is Constant) {
+      // TODO: Should not happen now that we have broken out the coefficient?
+      if (b is Constant) return a.value.compareTo(b.value);
+      return -1;
+    }
+    if (b is Constant) {
+      // TODO: Should not happen now that we have broken out the coefficient?
+      return 1;
+    }
+    if (a is Unknown) {
+      if (b is Unknown) return a.name.compareTo(b.name);
+      return -1;
+    }
+    if (b is Unknown) {
+      return 1;
+    }
+    return 0;
+  }
+
+  List<Term> __sortedFactors;
+  List<Term> get _sortedFactors => __sortedFactors ??= [...factors]..sort(_sortOrder);
+
   @override bool startsWithMinus() => coefficient < 0.0;
   @override String toString() {
     String ret;
@@ -290,7 +292,7 @@ class Product implements Term {
     }
     bool prevWasUnknown = false;
     String mul = '';
-    for (Term term in factors) {
+    for (Term term in _sortedFactors) {
       if (term is Unknown) {
         if (!prevWasUnknown) {
           ret += '$mul';
