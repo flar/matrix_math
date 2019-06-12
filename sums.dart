@@ -90,7 +90,7 @@ class TermAccumulator {
 class Sum implements Term {
   final List<Term> addends;
 
-  Sum(this.addends);
+  Sum(List<Term> terms) : addends = unmodifiableTerms(terms);
 
   /// A helper method to add a list of Term objects and return a simplified result.
   static Term add(List<Term> terms) {

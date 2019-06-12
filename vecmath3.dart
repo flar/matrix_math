@@ -59,7 +59,9 @@ class Vector3 {
 class Matrix3x3 {
   final List<List<Term>> elements;
 
-  Matrix3x3(this.elements) {
+  Matrix3x3(List<List<Term>> elements)
+      : elements = unmodifiableMatrix(elements)
+  {
     assert(elements.length == 3 &&
         elements[0].length == 3 &&
         elements[1].length == 3 &&

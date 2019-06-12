@@ -6,6 +6,7 @@ import 'sums.dart';
 /// A Term object representing a single named unknown variable.
 class Unknown implements Term {
   final String name;
+
   const Unknown(this.name);
 
   @override bool isNegative() => false;

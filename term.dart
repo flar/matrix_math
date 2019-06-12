@@ -35,3 +35,14 @@ abstract class Term {
   /// with a minus sign.
   bool startsWithMinus();
 }
+
+List<Term> unmodifiableTerms(List<Term> terms) {
+  return List.unmodifiable(terms);
+}
+
+List<List<Term>> unmodifiableMatrix(List<List<Term>> matrix) {
+  return List.unmodifiable([
+    for (var row in matrix)
+      unmodifiableTerms(row),
+  ]);
+}

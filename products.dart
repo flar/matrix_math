@@ -154,7 +154,7 @@ class Product implements Term {
   final double coefficient;
   final List<Term> factors;
 
-  Product({this.coefficient = 1.0, this.factors});
+  Product({this.coefficient = 1.0, List<Term> factors}) : factors = unmodifiableTerms(factors);
 
   /// Multiply a list of Term objects with an additional coefficient and return the
   /// Term object representing the simplified result.

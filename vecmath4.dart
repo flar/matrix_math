@@ -65,7 +65,9 @@ class Vector4 {
 class Matrix4x4 {
   final List<List<Term>> elements;
 
-  Matrix4x4(this.elements) {
+  Matrix4x4(List<List<Term>> elements)
+      : elements = unmodifiableMatrix(elements)
+  {
     assert(elements.length == 4 &&
         elements[0].length == 4 &&
         elements[1].length == 4 &&
