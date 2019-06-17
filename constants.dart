@@ -1,7 +1,7 @@
 import 'term.dart';
 
 /// A Term representing an ordinary number with no unknown values.
-class Constant implements Term {
+class Constant extends Term {
   final double value;
 
   const Constant(this.value);
@@ -56,6 +56,7 @@ class Constant implements Term {
     return (term is Constant && term.value == this.value);
   }
   @override String toString() => value.toString();
+  @override String toOutline() => 'K';
   @override bool startsWithMinus() => value < 0.0;
 }
 

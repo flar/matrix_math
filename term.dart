@@ -11,6 +11,8 @@
 /// - Division   (a division of exactly 2 other Term objects)
 /// - Sum        (a sum of other Term objects)
 abstract class Term {
+  const Term();
+
   /// Is this Term object naturally negative?
   ///
   ///  Used in processing of negatesGracefully()
@@ -23,6 +25,11 @@ abstract class Term {
   /// Return a new Term object representing the negation of this one.
   Term negate();
 
+  /// Return a Term object representing the negation of this one if [doNegate] is true.
+  Term negateIf(bool doNegate) {
+    return doNegate ? negate() : this;
+  }
+
   /// Return true if this Term is identical to the other
   bool equals(Term other);
 
@@ -34,15 +41,9 @@ abstract class Term {
   /// Returns true if the string representation of this Term will start
   /// with a minus sign.
   bool startsWithMinus();
-}
 
-List<Term> unmodifiableTerms(List<Term> terms) {
-  return List.unmodifiable(terms);
-}
-
-List<List<Term>> unmodifiableMatrix(List<List<Term>> matrix) {
-  return List.unmodifiable([
-    for (var row in matrix)
-      unmodifiableTerms(row),
-  ]);
+  /// Returns a string that shows the structure of the Term, outlining the
+  /// type of this [Term] and the relationship to any component [Term]
+  /// objects in the expression.
+  String toOutline();
 }

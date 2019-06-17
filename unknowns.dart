@@ -4,7 +4,7 @@ import 'products.dart';
 import 'sums.dart';
 
 /// A Term object representing a single named unknown variable.
-class Unknown implements Term {
+class Unknown extends Term {
   final String name;
 
   const Unknown(this.name);
@@ -30,5 +30,6 @@ class Unknown implements Term {
     return null;
   }
   @override String toString() => name;
+  @override String toOutline() => 'v';
   @override bool startsWithMinus() => false;
 }

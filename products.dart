@@ -150,11 +150,11 @@ class FactorAccumulator {
 }
 
 /// A Term object representing the multiplication of a number of other Term objects.
-class Product implements Term {
+class Product extends Term {
   final double coefficient;
   final List<Term> factors;
 
-  Product({this.coefficient = 1.0, List<Term> factors}) : factors = unmodifiableTerms(factors);
+  Product({this.coefficient = 1.0, List<Term> factors}) : factors = List.unmodifiable(factors);
 
   /// Multiply a list of Term objects with an additional coefficient and return the
   /// Term object representing the simplified result.
@@ -309,12 +309,15 @@ class Product implements Term {
     }
     return ret;
   }
+
+  int get _nTerms => factors.length + (coefficient == 1.0 ? 0 : 1);
+  @override String toOutline() => 'Product($_nTerms factors)';
 }
 
 /// A Term object representing the division of 2 other Term objects.
 ///
 /// TODO: This object could potentially be integrated into the Product object.
-class Division implements Term {
+class Division extends Term {
   final Term numerator;
   final Term denominator;
 
@@ -366,5 +369,6 @@ class Division implements Term {
 
   @override bool isNegative() => numerator.isNegative() != denominator.isNegative();
   @override bool startsWithMinus() => numerator.startsWithMinus();
-  @override String toString() => '$numerator/$denominator';
+  @override String toString() => '$numerator / $denominator';
+  @override String toOutline() => 'Division(${numerator.toOutline()} / ${denominator.toOutline()})';
 }

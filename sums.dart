@@ -87,10 +87,10 @@ class TermAccumulator {
 }
 
 /// A Term object representing the sum of a number of other Term objects.
-class Sum implements Term {
+class Sum extends Term {
   final List<Term> addends;
 
-  Sum(List<Term> terms) : addends = unmodifiableTerms(terms);
+  Sum(List<Term> terms) : addends = List.unmodifiable(terms);
 
   /// A helper method to add a list of Term objects and return a simplified result.
   static Term add(List<Term> terms) {
@@ -268,5 +268,24 @@ class Sum implements Term {
       add = '+';
     }
     return ret+')';
+  }
+
+  @override String toOutline() {
+    String ret = 'Sum(';
+    String add = '';
+    int nTerms = 0;
+    for (Term term in addends) {
+      if (term is Product || term is Unknown) {
+        nTerms++;
+      } else {
+        if (!term.startsWithMinus()) ret += add;
+        ret += term.toOutline();
+        add = ' + ';
+      }
+    }
+    if (nTerms > 0) {
+      ret += '$add$nTerms terms';
+    }
+    return ret + ')';
   }
 }

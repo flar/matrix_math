@@ -183,10 +183,6 @@ abstract class MatrixNxN {
                    Product.mul(elements[row1][col2], elements[row2][col1]));
   }
 
-  static Term _negateIf(Term term, bool negate) {
-    return negate ? term.negate() : term;
-  }
-
   Term _subDeterminant(List<int> rows, List<int> cols) {
     assert(rows.length == cols.length);
     if (rows.length == 1) return elements[rows[0]][cols[0]];
@@ -195,11 +191,9 @@ abstract class MatrixNxN {
     List<int> oRows = rows.sublist(1);
     return Sum.add([
       for (int i = 0; i < cols.length; i++)
-        _negateIf(
-            Product.mul(elements[row][cols[i]],
-                        _subDeterminant(oRows, _listBut(cols, cols[i]))),
-            ((i & 1) == 1)
-        ),
+        Product.mul(elements[row][cols[i]],
+                    _subDeterminant(oRows, _listBut(cols, cols[i])))
+            .negateIf(((i & 1) == 1)),
     ]);
   }
 
@@ -231,7 +225,7 @@ abstract class MatrixNxN {
       [
         for (int row in indices) [
           for (int col in indices)
-            _negateIf(elements[row][col], (((row ^ col) & 1) != 0)),
+            elements[row][col].negateIf(((row ^ col) & 1) != 0),
         ],
       ],
     );

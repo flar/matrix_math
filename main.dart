@@ -141,6 +141,7 @@ void main() {
   Term t0 = Division.div(Z0, Z0mZ1);
   print('');
   print('t0 = $t0');
+  print('t0 outline = ${t0.toOutline()}');
 
   print('');
   print('Alternate Method:');
@@ -171,7 +172,7 @@ void main() {
   print('(P3s * M3a) normalized = ${P3si.normalize()}');
   print('');
   Matrix3x3 M3u = M3.multiplyMatrix(M3a).divideFactor(M3det);
-  M3u.printOut('(M4 x M4a) / |M4|');
+  M3u.printOut('(M3 x M3a) / |M3|');
   Vector3 P3malt = M3a.transform(P3s.normalize());
   print('');
   print('P3m alternate inverse = $P3malt');
