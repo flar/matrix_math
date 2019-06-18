@@ -344,17 +344,24 @@ class Division extends Term {
     return Division(numerator, denominator.negate());
   }
 
+  /// Determine if two Division Terms can be combined by virtue of having a common
+  /// denominator.
+  ///
+  /// TODO: look for denominators that share a common factor or differ only by a coefficient.
   @override
   Term addDirect(Term other, isNegated) {
-    if (other is Division && this.denominator.equals(other.denominator)) {
-      Term newNumerator = this.numerator.addDirect(other.numerator, isNegated);
-      if (newNumerator != null) {
-        if (newNumerator == zero || newNumerator == nan ||
-            newNumerator == pos_inf || newNumerator == neg_inf)
-        {
-          return newNumerator;
+    if (other is Division) {
+      if (this.denominator.equals(other.denominator)) {
+        Term newNumerator = this.numerator.addDirect(other.numerator, isNegated);
+        if (newNumerator != null) {
+          if (newNumerator == zero || newNumerator == nan ||
+              newNumerator == pos_inf || newNumerator == neg_inf)
+          {
+            return newNumerator;
+          }
+          return Division(newNumerator, this.denominator);
         }
-        return Division(newNumerator, this.denominator);
+        return Division(Sum.add([this.numerator, other.numerator]), this.denominator);
       }
     }
     return null;

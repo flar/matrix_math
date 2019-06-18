@@ -9,20 +9,6 @@ class TermAccumulator {
   List<Term> terms = [];
   double constant = 0.0;
 
-  /// Determine if two Division Terms can be combined by virtue of having a common
-  /// denominator.
-  ///
-  /// TODO: look for denominators that share a common factor or differ only by a coefficient.
-  Term combineDivisions(Division first, Division second, bool secondNegated) {
-    if (first.denominator.equals(second.denominator)) {
-      Term num = secondNegated
-          ? Sum.sub(first.numerator, second.numerator)
-          : Sum.add([first.numerator, second.numerator]);
-      return (num == zero) ? num : Division.div(num, first.denominator);
-    }
-    return null;
-  }
-
   /// Accumulate a Term object, consolidating all constant terms into a single constant
   /// and combining any objects which can be added directly to each other and also combine
   /// any compatible divisions.
@@ -48,17 +34,6 @@ class TermAccumulator {
             terms[i] = sum;
           }
           return;
-        }
-      }
-      if (term is Division) {
-        for (int i = 0; i < terms.length; i++) {
-          if (terms[i] is Division) {
-            Term combined = combineDivisions(terms[i], term, isNegated);
-            if (combined != null) {
-              terms[i] = combined;
-              return;
-            }
-          }
         }
       }
       if (isNegated) term = term.negate();
