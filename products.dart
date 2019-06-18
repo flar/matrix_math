@@ -359,10 +359,17 @@ class Division extends Term {
           {
             return newNumerator;
           }
-          return Division(newNumerator, this.denominator);
+          return Division.div(newNumerator, this.denominator);
         }
-        return Division(Sum.add([this.numerator, other.numerator]), this.denominator);
+        return Division.div(Sum.add([this.numerator, other.numerator]), this.denominator);
       }
+//      return Division.div(
+//        Sum.add([
+//          Product.mul(this.numerator, other.denominator),
+//          Product.mul(other.numerator, this.denominator),
+//        ]),
+//        Product.mul(this.denominator, other.denominator),
+//      );
     }
     return null;
   }
