@@ -159,21 +159,7 @@ void runTransforms(Matrix4x4 M4) {
 }
 
 void runRectTransforms() {
-  print(' Doing the rectangle transform with a full 4x4 matrix:');
-  print('');
-
-  Matrix4x4 M4 = Matrix4x4([
-    [ a, b, c, d, ],
-    [ e, f, g, h, ],
-    [ i, j, k, l, ],
-    [ m, n, o, p, ],
-  ]);
-
-  runTransforms(M4);
-
-  print('');
-  print('');
-  print(' And now for the non-perspective case');
+  print(' First, rectangle transformation for the non-perspective (affine 3D) case');
   print('');
 
   Matrix4x4 M4np = Matrix4x4([
@@ -188,7 +174,7 @@ void runRectTransforms() {
 
   print('');
   print('');
-  print(' And now doing it with a basic camera perspective matrix:');
+  print(' And now adding a basic camera perspective matrix, but no 3D operations:');
   print('');
 
   Matrix4x4 M4cam = Matrix4x4([
@@ -199,6 +185,21 @@ void runRectTransforms() {
   ]);
 
   runTransforms(M4cam);
+
+
+  print('');
+  print('');
+  print(' Finally, considering the rectangle transform with a full 4x4 matrix:');
+  print('');
+
+  Matrix4x4 M4full = Matrix4x4([
+    [ a, b, c, d, ],
+    [ e, f, g, h, ],
+    [ i, j, k, l, ],
+    [ m, n, o, p, ],
+  ]);
+
+  runTransforms(M4full);
 }
 
 void runPickRays() {
