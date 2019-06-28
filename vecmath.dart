@@ -67,6 +67,22 @@ abstract class VectorN {
     }
     return ret+')';
   }
+
+  void printOut(String label) {
+    String str = toString();
+    if (label.length + str.length < 100) {
+      print('$label$str');
+      return;
+    }
+    String prefix = '${label}Vector$dimension(';
+    bool first = true;
+    for (var coordinate in coordinates) {
+      if (first) { first = false; } else { print(','); }
+      stdout.write('$prefix$coordinate');
+      prefix = ' ' * prefix.length;
+    }
+    print(')');
+  }
 }
 
 abstract class MatrixNxN {

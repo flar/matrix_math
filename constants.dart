@@ -52,10 +52,17 @@ class Constant extends Term {
     return Constant(-this.value);
   }
 
+  static String stringFor(double val) {
+    if (val.isFinite && val == val.toInt()) {
+      return val.toInt().toString();
+    }
+    return val.toString();
+  }
+
   @override bool equals(Term term) {
     return (term is Constant && term.value == this.value);
   }
-  @override String toString() => (value == value.toInt()) ? value.toInt().toString() : value.toString();
+  @override String toString() => stringFor(this.value);
   @override String toOutline() => 'K';
   @override bool startsWithMinus() => value < 0.0;
 }

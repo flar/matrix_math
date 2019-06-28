@@ -6,6 +6,28 @@ import 'sums.dart';
 import 'vecmath3.dart';
 import 'vecmath4.dart';
 
+void main(List<String> args) {
+  bool foundOne = false;
+  for (var arg in args) {
+    switch (arg) {
+      case 'rect_transform':
+        runRectTransforms();
+        foundOne = true;
+        break;
+      case 'pick_ray':
+        runPickRays();
+        foundOne = true;
+        break;
+      default:
+        print('Unrecognized arg ($arg) ignored');
+        break;
+    }
+  }
+  if (!foundOne) {
+    print('usage: dart main.dart [rect_transform] [pick_ray]');
+  }
+}
+
 const a = Unknown('a');
 const b = Unknown('b');
 const c = Unknown('c');
@@ -85,11 +107,18 @@ void runTransforms(Matrix4x4 M4) {
   Vector4 rt = Vector4(R, T);
   Vector4 lb = Vector4(L, B);
   Vector4 rb = Vector4(R, B);
+  Vector4 dw = Vector4(W, zero, zero, zero);
+  Vector4 dh = Vector4(zero, H, zero, zero);
 
   Vector4 Tlt = M4.transform(lt);
   Vector4 Trt = M4.transform(rt);
   Vector4 Tlb = M4.transform(lb);
   Vector4 Trb = M4.transform(rb);
+  Vector4 Tdw = M4.transform(dw);
+  Vector4 Tdh = M4.transform(dh);
+  Vector4 Tdltw = Tlt.add(Tdw);
+  Vector4 Tdlth = Tlt.add(Tdh);
+  Vector4 Tdltwh = Tdltw.add(Tdh);
 
   Vector4 TltN = Tlt.normalize();
   Vector4 TrtN = Trt.normalize();
@@ -100,6 +129,7 @@ void runTransforms(Matrix4x4 M4) {
   Vector4 Wb = TrbN.sub(TlbN);
   Vector4 Hl = TlbN.sub(TltN);
   Vector4 Hr = TrbN.sub(TrtN);
+  Vector4 Diag = TrbN.sub(TltN);
 
   M4.printOut('M4');
   print('');
@@ -107,22 +137,31 @@ void runTransforms(Matrix4x4 M4) {
   print('TxRT = M4 * $rt = $Trt');
   print('TxLB = M4 * $lb = $Tlb');
   print('TxRB = M4 * $rb = $Trb');
+  print('DTx(W,0) = $Tdw');
+  print('DTx(0,H) = $Tdh');
+  print('TxLT + DTx(W,0) = $Tdltw - TxRT = ${Trt.sub(Tdltw)}');
+  print('TxLT + DTx(0,H) = $Tdlth - TxLB = ${Tlb.sub(Tdlth)}');
+  print('TxLT + DTx(W,0) + DTx(0,H) = $Tdltwh - TxRB = ${Trb.sub(Tdltwh)}');
   print('');
   print('TxLT normalized = $TltN');
   print('TxRT normalized = $TrtN');
   print('TxLB normalized = $TlbN');
   print('TxRB normalized = $TrbN');
   print('');
-  print('WidthTop    = TxRTnorm - TxLTnorm = $Wt');
-  print('HeightLeft  = TxLBnorm - TxLTnorm = $Hl');
-  print('WidthBottom = TxRBnorm - TxLBnorm = $Wt');
-  print('HeightRight = TxRBnorm - TxRTnorm = $Hr');
+  Wt.printOut('WidthTop    = TxRTnorm - TxLTnorm = ');
+  Hl.printOut('HeightLeft  = TxLBnorm - TxLTnorm = ');
+  Wb.printOut('WidthBottom = TxRBnorm - TxLBnorm = ');
+  Hr.printOut('HeightRight = TxRBnorm - TxRTnorm = ');
+  Diag.printOut('Diagonal    = TxRBnorm - TxLTnorm = ');
   print('');
-  print('WidthTop - WidthBottom   = ${Wt.sub(Wb)}');
-  print('HeightLeft - HeightRight = ${Hl.sub(Hr)}');
+  Wb.sub(Wt).printOut('WidthBottom - WidthTop   = ');
+  Hr.sub(Hl).printOut('HeightRight - HeightLeft = ');
 }
 
-void main() {
+void runRectTransforms() {
+  print(' Doing the rectangle transform with a full 4x4 matrix:');
+  print('');
+
   Matrix4x4 M4 = Matrix4x4([
     [ a, b, c, d, ],
     [ e, f, g, h, ],
@@ -145,9 +184,24 @@ void main() {
   ]);
 
   runTransforms(M4np);
+
+
+  print('');
+  print('');
+  print(' And now doing it with a basic camera perspective matrix:');
+  print('');
+
+  Matrix4x4 M4cam = Matrix4x4([
+    [ a, b, c, d, ],
+    [ e, f, g, h, ],
+    [ i, j, k, l, ],
+    [ zero, zero, o, p, ],
+  ]);
+
+  runTransforms(M4cam);
 }
 
-void main2() {
+void runPickRays() {
 //  testMath();
   Matrix4x4 M4 = Matrix4x4([
     [ a, b, c, d, ],

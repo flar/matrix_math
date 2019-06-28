@@ -25,7 +25,7 @@ class TermAccumulator {
       }
     } else {
       for (int i = 0; i < terms.length; i++) {
-        Term sum = term.addDirect(terms[i], isNegated);
+        Term sum = terms[i].addDirect(term, isNegated);
         if (sum != null) {
           if (sum is Constant) {
             constant += sum.value;

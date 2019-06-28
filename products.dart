@@ -285,10 +285,8 @@ class Product extends Term {
       ret = '-';
     } else if (coefficient == 1.0) {
       ret = '';
-    } else if (coefficient == coefficient.toInt()) {
-      ret = coefficient.toInt().toString();
     } else {
-      ret = coefficient.toString();
+      ret = Constant.stringFor(coefficient);
     }
     bool prevWasUnknown = false;
     String mul = '';
@@ -353,23 +351,20 @@ class Division extends Term {
     if (other is Division) {
       if (this.denominator.equals(other.denominator)) {
         Term newNumerator = this.numerator.addDirect(other.numerator, isNegated);
-        if (newNumerator != null) {
-          if (newNumerator == zero || newNumerator == nan ||
-              newNumerator == pos_inf || newNumerator == neg_inf)
-          {
-            return newNumerator;
+        if (newNumerator == null) {
+          if (isNegated) {
+            newNumerator = Sum.sub(this.numerator, other.numerator);
+          } else {
+            newNumerator = Sum.add([this.numerator, other.numerator]);
           }
-          return Division.div(newNumerator, this.denominator);
         }
-        return Division.div(Sum.add([this.numerator, other.numerator]), this.denominator);
+        if (newNumerator == zero || newNumerator == nan ||
+            newNumerator == pos_inf || newNumerator == neg_inf)
+        {
+          return newNumerator;
+        }
+        return Division.div(newNumerator, this.denominator);
       }
-//      return Division.div(
-//        Sum.add([
-//          Product.mul(this.numerator, other.denominator),
-//          Product.mul(other.numerator, this.denominator),
-//        ]),
-//        Product.mul(this.denominator, other.denominator),
-//      );
     }
     return null;
   }
