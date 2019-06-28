@@ -73,7 +73,81 @@ void testMath() {
   printOps(neg_inf, nan);
 }
 
+Unknown L = Unknown('L');
+Unknown T = Unknown('T');
+Unknown W = Unknown('W');
+Unknown H = Unknown('H');
+Term R = Sum.add([L, W]);
+Term B = Sum.add([T, H]);
+
+void runTransforms(Matrix4x4 M4) {
+  Vector4 lt = Vector4(L, T);
+  Vector4 rt = Vector4(R, T);
+  Vector4 lb = Vector4(L, B);
+  Vector4 rb = Vector4(R, B);
+
+  Vector4 Tlt = M4.transform(lt);
+  Vector4 Trt = M4.transform(rt);
+  Vector4 Tlb = M4.transform(lb);
+  Vector4 Trb = M4.transform(rb);
+
+  Vector4 TltN = Tlt.normalize();
+  Vector4 TrtN = Trt.normalize();
+  Vector4 TlbN = Tlb.normalize();
+  Vector4 TrbN = Trb.normalize();
+
+  Vector4 Wt = TrtN.sub(TltN);
+  Vector4 Wb = TrbN.sub(TlbN);
+  Vector4 Hl = TlbN.sub(TltN);
+  Vector4 Hr = TrbN.sub(TrtN);
+
+  M4.printOut('M4');
+  print('');
+  print('TxLT = M4 * $lt = $Tlt');
+  print('TxRT = M4 * $rt = $Trt');
+  print('TxLB = M4 * $lb = $Tlb');
+  print('TxRB = M4 * $rb = $Trb');
+  print('');
+  print('TxLT normalized = $TltN');
+  print('TxRT normalized = $TrtN');
+  print('TxLB normalized = $TlbN');
+  print('TxRB normalized = $TrbN');
+  print('');
+  print('WidthTop    = TxRTnorm - TxLTnorm = $Wt');
+  print('HeightLeft  = TxLBnorm - TxLTnorm = $Hl');
+  print('WidthBottom = TxRBnorm - TxLBnorm = $Wt');
+  print('HeightRight = TxRBnorm - TxRTnorm = $Hr');
+  print('');
+  print('WidthTop - WidthBottom   = ${Wt.sub(Wb)}');
+  print('HeightLeft - HeightRight = ${Hl.sub(Hr)}');
+}
+
 void main() {
+  Matrix4x4 M4 = Matrix4x4([
+    [ a, b, c, d, ],
+    [ e, f, g, h, ],
+    [ i, j, k, l, ],
+    [ m, n, o, p, ],
+  ]);
+
+  runTransforms(M4);
+
+  print('');
+  print('');
+  print(' And now for the non-perspective case');
+  print('');
+
+  Matrix4x4 M4np = Matrix4x4([
+    [ a, b, c, d, ],
+    [ e, f, g, h, ],
+    [ i, j, k, l, ],
+    [ zero, zero, zero, one, ],
+  ]);
+
+  runTransforms(M4np);
+}
+
+void main2() {
 //  testMath();
   Matrix4x4 M4 = Matrix4x4([
     [ a, b, c, d, ],

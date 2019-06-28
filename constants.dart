@@ -55,7 +55,7 @@ class Constant extends Term {
   @override bool equals(Term term) {
     return (term is Constant && term.value == this.value);
   }
-  @override String toString() => value.toString();
+  @override String toString() => (value == value.toInt()) ? value.toInt().toString() : value.toString();
   @override String toOutline() => 'K';
   @override bool startsWithMinus() => value < 0.0;
 }
