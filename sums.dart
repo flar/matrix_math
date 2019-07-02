@@ -36,7 +36,7 @@ class TermAccumulator {
           return;
         }
       }
-      if (isNegated) term = term.negate();
+      if (isNegated) term = -term;
       terms.add(term);
     }
   }
@@ -68,9 +68,17 @@ class Sum extends Term {
   Sum(List<Term> terms) : addends = List.unmodifiable(terms);
 
   /// A helper method to add a list of Term objects and return a simplified result.
-  static Term add(List<Term> terms) {
+  static Term addList(List<Term> terms) {
     TermAccumulator accumulator = TermAccumulator();
     for (var term in terms) accumulator.accumulate(term, false);
+    return accumulator.getResult();
+  }
+
+  /// A helper method to add two Term objects and return a simplified result.
+  static Term add(Term a, Term b) {
+    TermAccumulator accumulator = TermAccumulator();
+    accumulator.accumulate(a, false);
+    accumulator.accumulate(b, false);
     return accumulator.getResult();
   }
 
@@ -133,11 +141,10 @@ class Sum extends Term {
   }
 
   @override
-  Term negate() {
-    return Sum.add([
-      for (var term in addends)
-        term.negate(),
-    ]);
+  Term operator -() {
+    TermAccumulator accumulator = TermAccumulator();
+    for (var term in addends) accumulator.accumulate(term, true);
+    return accumulator.getResult();
   }
 
   @override bool isNegative() => false;

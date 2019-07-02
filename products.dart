@@ -66,7 +66,7 @@ class FactorAccumulator {
       return Constant.forDouble(coefficient);
     } else if (terms.length == 1) {
       if (coefficient == 1.0) return terms[0];
-      if (coefficient == -1.0) return terms[0].negate();
+      if (coefficient == -1.0) return -terms[0];
     }
     return distribute(coefficient, terms);
   }
@@ -85,7 +85,7 @@ class FactorAccumulator {
             ...terms.sublist(i + 1),
           ]));
         }
-        return Sum.add(distributed);
+        return Sum.addList(distributed);
       }
     }
     return Product(
@@ -110,10 +110,10 @@ class FactorAccumulator {
     Term numCommon = numerator.commonFactor();
     Term denCommon = denominator.commonFactor();
     if (numCommon == one && denCommon == one) return null;
-    Term numCross = Product.mul(numerator, denCommon);
-    Term denCross = Product.mul(denominator, numCommon);
+    Term numCross = numerator   * denCommon;
+    Term denCross = denominator * numCommon;
     return (numCross.equals(denCross))
-        ? Division.div(numCommon, denCommon)
+        ? (numCommon / denCommon)
         : null;
   }
 
@@ -191,7 +191,7 @@ class Product extends Term {
   }
 
   @override
-  Term negate() {
+  Term operator -() {
     if (coefficient > 0) {
       for (int i = 0; i < factors.length; i++) {
         Term term = factors[i];
@@ -200,7 +200,7 @@ class Product extends Term {
             coefficient: coefficient,
             factors: [
               ...factors.sublist(0, i),
-              term.negate(),
+              -term,
               ...factors.sublist(i+1),
             ],
           );
@@ -335,11 +335,10 @@ class Division extends Term {
   }
 
   @override
-  Term negate() {
-    if (numerator.negatesGracefully()) {
-      return Division(numerator.negate(), denominator);
-    }
-    return Division(numerator, denominator.negate());
+  Term operator -() {
+    return (numerator.negatesGracefully())
+        ? Division(-numerator, denominator)
+        : Division(numerator, -denominator);
   }
 
   /// Determine if two Division Terms can be combined by virtue of having a common
@@ -353,9 +352,9 @@ class Division extends Term {
         Term newNumerator = this.numerator.addDirect(other.numerator, isNegated);
         if (newNumerator == null) {
           if (isNegated) {
-            newNumerator = Sum.sub(this.numerator, other.numerator);
+            newNumerator = this.numerator - other.numerator;
           } else {
-            newNumerator = Sum.add([this.numerator, other.numerator]);
+            newNumerator = this.numerator + other.numerator;
           }
         }
         if (newNumerator == zero || newNumerator == nan ||
@@ -363,7 +362,7 @@ class Division extends Term {
         {
           return newNumerator;
         }
-        return Division.div(newNumerator, this.denominator);
+        return (newNumerator / this.denominator);
       }
     }
     return null;

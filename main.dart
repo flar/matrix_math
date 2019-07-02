@@ -1,8 +1,6 @@
 import 'term.dart';
 import 'unknowns.dart';
 import 'constants.dart';
-import 'products.dart';
-import 'sums.dart';
 import 'vecmath3.dart';
 import 'vecmath4.dart';
 
@@ -99,8 +97,8 @@ Unknown L = Unknown('L');
 Unknown T = Unknown('T');
 Unknown W = Unknown('W');
 Unknown H = Unknown('H');
-Term R = Sum.add([L, W]);
-Term B = Sum.add([T, H]);
+Term R = (L + W);
+Term B = (T + H);
 
 void runTransforms(Matrix4x4 M4) {
   Vector4 lt = Vector4(L, T);
@@ -116,20 +114,20 @@ void runTransforms(Matrix4x4 M4) {
   Vector4 Trb = M4.transform(rb);
   Vector4 Tdw = M4.transform(dw);
   Vector4 Tdh = M4.transform(dh);
-  Vector4 Tdltw = Tlt.add(Tdw);
-  Vector4 Tdlth = Tlt.add(Tdh);
-  Vector4 Tdltwh = Tdltw.add(Tdh);
+  Vector4 Tdltw = Tlt + Tdw;
+  Vector4 Tdlth = Tlt + Tdh;
+  Vector4 Tdltwh = Tdltw + Tdh;
 
   Vector4 TltN = Tlt.normalize();
   Vector4 TrtN = Trt.normalize();
   Vector4 TlbN = Tlb.normalize();
   Vector4 TrbN = Trb.normalize();
 
-  Vector4 Wt = TrtN.sub(TltN);
-  Vector4 Wb = TrbN.sub(TlbN);
-  Vector4 Hl = TlbN.sub(TltN);
-  Vector4 Hr = TrbN.sub(TrtN);
-  Vector4 Diag = TrbN.sub(TltN);
+  Vector4 Wt = TrtN - TltN;
+  Vector4 Wb = TrbN - TlbN;
+  Vector4 Hl = TlbN - TltN;
+  Vector4 Hr = TrbN - TrtN;
+  Vector4 WH = TrbN - TltN;
 
   M4.printOut('M4');
   print('');
@@ -139,9 +137,12 @@ void runTransforms(Matrix4x4 M4) {
   print('TxRB = M4 * $rb = $Trb');
   print('DTx(W,0) = $Tdw');
   print('DTx(0,H) = $Tdh');
-  print('TxLT + DTx(W,0) = $Tdltw - TxRT = ${Trt.sub(Tdltw)}');
-  print('TxLT + DTx(0,H) = $Tdlth - TxLB = ${Tlb.sub(Tdlth)}');
-  print('TxLT + DTx(W,0) + DTx(0,H) = $Tdltwh - TxRB = ${Trb.sub(Tdltwh)}');
+  print('TxLT + DTx(W,0) = $Tdltw');
+  print('    ... then compared to TxRT = ${Tdltw - Trt}');
+  print('TxLT + DTx(0,H) = $Tdlth');
+  print('    ... then compared to TxLB = ${Tdlth - Tlb}');
+  print('TxLT + DTx(W,0) + DTx(0,H) = $Tdltwh');
+  print('    ... then compared to TxRB = ${Tdltwh - Trb}');
   print('');
   print('TxLT normalized = $TltN');
   print('TxRT normalized = $TrtN');
@@ -152,10 +153,10 @@ void runTransforms(Matrix4x4 M4) {
   Hl.printOut('HeightLeft  = TxLBnorm - TxLTnorm = ');
   Wb.printOut('WidthBottom = TxRBnorm - TxLBnorm = ');
   Hr.printOut('HeightRight = TxRBnorm - TxRTnorm = ');
-  Diag.printOut('Diagonal    = TxRBnorm - TxLTnorm = ');
+  WH.printOut('Diagonal    = TxRBnorm - TxLTnorm = ');
   print('');
-  Wb.sub(Wt).printOut('WidthBottom - WidthTop   = ');
-  Hr.sub(Hl).printOut('HeightRight - HeightLeft = ');
+  (Wb - Wt).printOut('WidthBottom - WidthTop   = ');
+  (Hr - Hl).printOut('HeightRight - HeightLeft = ');
 }
 
 void runRectTransforms() {
@@ -228,7 +229,7 @@ void runPickRays() {
 //  print('');
   Vector4 P4m = Vector4(X, Y);
   if (P4m.zVal != zero) print("z not zero!");
-  if (Product.mul(P4m.zVal, M4.elements[0][2]) != zero) print("product not zero!");
+  if ((P4m.zVal * M4.elements[0][2]) != zero) print("product not zero!");
   Vector4 P4s = M4.transform(P4m);
   Vector4 P4si = M4a.transform(P4s);
   print('P4m      = $P4m');
@@ -240,7 +241,7 @@ void runPickRays() {
   print('');
   print('(P4s * M4a) normalized = ${P4si.normalize()}');
   print('');
-  Matrix4x4 M4u = M4.multiplyMatrix(M4a).divideFactor(M4det);
+  Matrix4x4 M4u = (M4 * M4a) / M4det;
   M4u.printOut('(M4 x M4a) / |M4|');
 
   Vector4 P4sz0 = Vector4(X, Y, zero);
@@ -254,7 +255,7 @@ void runPickRays() {
   print('');
   print('P4m(Z=1) = $P4mz1');
   print('');
-  print('P4m(Z=1) - P4m(Z=0) = ${P4mz1.sub(P4mz0)}');
+  print('P4m(Z=1) - P4m(Z=0) = ${P4mz1 - P4mz0}');
 
   // P4mz0.z = Z0 + (t=0)*(Z1 - Z0) = Z0
   // P4mz1.z = Z0 + (t=1)*(Z1 - Z0) = Z0 + Z1-Z0 = Z1
@@ -266,8 +267,8 @@ void runPickRays() {
   Vector4 P4mz1n = P4mz1.normalize();
   Term Z0 = P4mz0n.zVal;
   Term Z1 = P4mz1n.zVal;
-  Term Z0mZ1 = Sum.sub(Z0, Z1);
-  Term t0 = Division.div(Z0, Z0mZ1);
+  Term Z0mZ1 = Z0 - Z1;
+  Term t0 = Z0 / Z0mZ1;
   print('');
   print('t0 = $t0');
   print('t0 outline = ${t0.toOutline()}');
@@ -300,7 +301,7 @@ void runPickRays() {
   print('');
   print('(P3s * M3a) normalized = ${P3si.normalize()}');
   print('');
-  Matrix3x3 M3u = M3.multiplyMatrix(M3a).divideFactor(M3det);
+  Matrix3x3 M3u = (M3 * M3a) / M3det;
   M3u.printOut('(M3 x M3a) / |M3|');
   Vector3 P3malt = M3a.transform(P3s.normalize());
   print('');

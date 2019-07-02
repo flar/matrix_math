@@ -18,10 +18,6 @@ class Vector4 extends VectorN {
 
   Vector4 makeVector(List<Term> coordinates) => Vector4.fromList(coordinates);
 
-  Vector4 add(Vector4 other) => super.add(other);
-  Vector4 sub(Vector4 other) => super.sub(other);
-  Vector4 multiplyFactor(Term factor) => super.multiplyFactor(factor);
-  Vector4 divideFactor(Term factor) => super.divideFactor(factor);
   Vector4 normalize() => super.normalize();
 }
 
@@ -32,9 +28,6 @@ class Matrix4x4 extends MatrixNxN {
   Matrix4x4 makeMatrix(List<List<Term>> elements) => Matrix4x4(elements);
 
   @override Vector4 transform(Vector4 vec) => super.transform(vec);
-  @override Matrix4x4 multiplyFactor(Term factor) => super.multiplyFactor(factor);
-  @override Matrix4x4 divideFactor(Term factor) => super.divideFactor(factor);
-  @override Matrix4x4 multiplyMatrix(MatrixNxN other) => super.multiplyMatrix(other);
   @override Matrix4x4 minors() => super.minors();
   @override Matrix4x4 cofactors() => super.cofactors();
   @override Matrix4x4 transpose() => super.transpose();

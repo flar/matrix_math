@@ -1,3 +1,6 @@
+import 'sums.dart';
+import 'products.dart';
+
 /// The fundamental element in an equation.
 ///
 /// All Term objects should be considered immutable and all operations on them should
@@ -22,13 +25,8 @@ abstract class Term {
   /// it by a new coefficient of -1?
   bool negatesGracefully();
 
-  /// Return a new Term object representing the negation of this one.
-  Term negate();
-
   /// Return a Term object representing the negation of this one if [doNegate] is true.
-  Term negateIf(bool doNegate) {
-    return doNegate ? negate() : this;
-  }
+  Term negateIf(bool doNegate) => doNegate ? -this : this;
 
   /// Return true if this Term is identical to the other
   bool equals(Term other);
@@ -37,6 +35,21 @@ abstract class Term {
   /// object, return a new Term object representing the sum, or
   /// null if it is not possible.
   Term addDirect(Term other, bool isNegated);
+
+  /// Add a [Term] to this one.
+  Term operator +(Term other) => Sum.add(this, other);
+
+  /// Subtract a [Term] from this one.
+  Term operator -(Term other) => Sum.sub(this, other);
+
+  /// Multiply this [Term] by another.
+  Term operator *(Term other) => Product.mul(this, other);
+
+  /// Divide this [Term] by another.
+  Term operator /(Term other) => Division.div(this, other);
+
+  /// Negate this term.
+  Term operator -();
 
   /// Returns true if the string representation of this Term will start
   /// with a minus sign.

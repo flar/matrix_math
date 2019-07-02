@@ -42,7 +42,7 @@ class Constant extends Term {
   }
 
   @override
-  Term negate() {
+  Term operator -() {
     if (this == nan)     return nan;
     if (this == one)     return neg_one;
     if (this == zero)    return zero;
