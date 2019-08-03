@@ -12,10 +12,10 @@ import 'sums.dart';
 class FactorAccumulator {
   List<Term> numerators = [];
   List<Term> denominators;
-  double coefficient = 1.0;
+  Constant coefficient = one;
 
   /// Accumulate a single double value into the coefficient (with optional inversion).
-  void accumulateValue(double val, bool isInverted) {
+  void accumulateValue(Constant val, bool isInverted) {
     if (isInverted) {
       coefficient /= val;
     } else {
@@ -27,7 +27,7 @@ class FactorAccumulator {
   /// depending on the isInverted boolean.
   void accumulate(Term t, bool isInverted) {
     if (t is Constant) {
-      accumulateValue(t.value, isInverted);
+      accumulateValue(t, isInverted);
     } else if (t is Product) {
       accumulateValue(t.coefficient, isInverted);
       for (var f in t.factors) accumulate(f, isInverted);
@@ -61,19 +61,19 @@ class FactorAccumulator {
 
   /// Return an optimized result for a list of factors, including reduction to a constant
   /// or a single term, and distributing any addition Term objects into the remaining factors.
-  static Term _forList(double coefficient, List<Term> terms) {
+  static Term _forList(Constant coefficient, List<Term> terms) {
     if (terms.length == 0) {
-      return Constant.forDouble(coefficient);
+      return coefficient;
     } else if (terms.length == 1) {
-      if (coefficient == 1.0) return terms[0];
-      if (coefficient == -1.0) return -terms[0];
+      if (coefficient == one)     return  terms[0];
+      if (coefficient == neg_one) return -terms[0];
     }
     return distribute(coefficient, terms);
   }
 
   /// Look for a factor that is a Sum object and distribute it into the other factors
   /// to enable a simplified form in which we can cancel terms more effectively.
-  static Term distribute(double coefficient, List<Term> terms) {
+  static Term distribute(Constant coefficient, List<Term> terms) {
     for (int i = 0; i < terms.length; i++) {
       Term term = terms[i];
       if (term is Sum) {
@@ -125,8 +125,9 @@ class FactorAccumulator {
   /// coefficients that overwhelm the product (0, nan, infinities) and the simplifications
   /// determined by the divideSums() method.
   Term getResult() {
-    Term special = Constant.isSpecialCoefficient(coefficient);
-    if (special != null) return special;
+    if (coefficient.overwhelmsProducts()) {
+      return coefficient;
+    }
     if (denominators != null) {
       int keep = 0;
       for (int i = 0; i < denominators.length; i++) {
@@ -137,7 +138,7 @@ class FactorAccumulator {
       if (keep > 0) {
         denominators.length = keep;
         Term num = _forList(coefficient, numerators);
-        Term den = _forList(1.0,         denominators);
+        Term den = _forList(one,         denominators);
         if (num is Sum && den is Sum) {
           Term simplified = divideSums(num, den);
           if (simplified != null) return simplified;
@@ -151,14 +152,14 @@ class FactorAccumulator {
 
 /// A Term object representing the multiplication of a number of other Term objects.
 class Product extends Term {
-  final double coefficient;
+  final Constant coefficient;
   final List<Term> factors;
 
-  Product({this.coefficient = 1.0, List<Term> factors}) : factors = List.unmodifiable(factors);
+  Product({this.coefficient = one, List<Term> factors}) : factors = List.unmodifiable(factors);
 
   /// Multiply a list of Term objects with an additional coefficient and return the
   /// Term object representing the simplified result.
-  static Term mulList(double coefficient, List<Term> terms) {
+  static Term mulList(Constant coefficient, List<Term> terms) {
     FactorAccumulator accumulator = FactorAccumulator();
     accumulator.accumulateValue(coefficient, false);
     for (var term in terms) accumulator.accumulate(term, false);
@@ -175,7 +176,7 @@ class Product extends Term {
 
   @override
   bool isNegative() {
-    bool isNeg = coefficient < 0.0;
+    bool isNeg = coefficient.isNegative();
     for (var factor in factors) {
       if (factor.isNegative()) isNeg = !isNeg;
     }
@@ -192,7 +193,7 @@ class Product extends Term {
 
   @override
   Term operator -() {
-    if (coefficient > 0) {
+    if (!coefficient.isNegative()) {
       for (int i = 0; i < factors.length; i++) {
         Term term = factors[i];
         if (term.negatesGracefully()) {
@@ -207,24 +208,23 @@ class Product extends Term {
         }
       }
     }
-    if (coefficient == -1.0 && factors.length == 1) {
+    if (coefficient == neg_one && factors.length == 1) {
       return factors[0];
     }
     return Product(coefficient: -coefficient, factors: factors);
   }
 
   @override Term addDirect(Term other, bool isNegated) {
-    double delta;
+    Constant delta;
     if (other is Product && equalFactors(this.factors, other.factors)) {
       delta = other.coefficient;
     } else if (other is Unknown && this.factors.length == 1 && this.factors[0].equals(other)) {
-      delta = 1.0;
+      delta = one;
     } else {
       return null;
     }
-    double newCoefficient = Constant.addOrSub(this.coefficient, delta, isNegated);
-    Term special = Constant.isSpecialCoefficient(newCoefficient);
-    if (special != null) return special;
+    Constant newCoefficient = isNegated ? this.coefficient - delta : this.coefficient + delta;
+    if (newCoefficient.overwhelmsProducts()) return newCoefficient;
     return Product(coefficient: newCoefficient, factors: this.factors);
   }
 
@@ -258,7 +258,7 @@ class Product extends Term {
   static int _sortOrder(Term a, Term b) {
     if (a is Constant) {
       // TODO: Should not happen now that we have broken out the coefficient?
-      if (b is Constant) return a.value.compareTo(b.value);
+      if (b is Constant) return a.compareTo(b);
       return -1;
     }
     if (b is Constant) {
@@ -278,15 +278,15 @@ class Product extends Term {
   List<Term> __sortedFactors;
   List<Term> get _sortedFactors => __sortedFactors ??= [...factors]..sort(_sortOrder);
 
-  @override bool startsWithMinus() => coefficient < 0.0;
+  @override bool startsWithMinus() => coefficient.isNegative();
   @override String toString() {
     String ret;
-    if (coefficient == -1.0) {
+    if (coefficient == neg_one) {
       ret = '-';
-    } else if (coefficient == 1.0) {
+    } else if (coefficient == one) {
       ret = '';
     } else {
-      ret = Constant.stringFor(coefficient);
+      ret = coefficient.toString();
     }
     bool prevWasUnknown = false;
     String mul = '';
@@ -308,7 +308,7 @@ class Product extends Term {
     return ret;
   }
 
-  int get _nTerms => factors.length + (coefficient == 1.0 ? 0 : 1);
+  int get _nTerms => factors.length + (coefficient == one ? 0 : 1);
   @override String toOutline() => 'Product($_nTerms factors)';
 }
 
@@ -357,8 +357,8 @@ class Division extends Term {
             newNumerator = this.numerator + other.numerator;
           }
         }
-        if (newNumerator == zero || newNumerator == nan ||
-            newNumerator == pos_inf || newNumerator == neg_inf)
+        if (newNumerator == zero || newNumerator == indeterminate ||
+            newNumerator == pos_infinity || newNumerator == neg_infinity)
         {
           return newNumerator;
         }

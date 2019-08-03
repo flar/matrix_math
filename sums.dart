@@ -7,7 +7,7 @@ import 'products.dart';
 /// are being added together and in simplifying the resulting summation.
 class TermAccumulator {
   List<Term> terms = [];
-  double constant = 0.0;
+  Constant constant = zero;
 
   /// Accumulate a Term object, consolidating all constant terms into a single constant
   /// and combining any objects which can be added directly to each other and also combine
@@ -15,9 +15,9 @@ class TermAccumulator {
   void accumulate(Term term, bool isNegated) {
     if (term is Constant) {
       if (isNegated) {
-        constant -= term.value;
+        constant -= term;
       } else {
-        constant += term.value;
+        constant += term;
       }
     } else if (term is Sum) {
       for (var addend in term.addends) {
@@ -28,7 +28,7 @@ class TermAccumulator {
         Term sum = terms[i].addDirect(term, isNegated);
         if (sum != null) {
           if (sum is Constant) {
-            constant += sum.value;
+            constant += sum;
             terms.removeAt(i);
           } else {
             terms[i] = sum;
@@ -47,14 +47,13 @@ class TermAccumulator {
   /// infinities and nan, and the reduction of the list of terms into a single
   /// term.
   Term getResult() {
-    if (constant.isNaN) return nan;
-    if (constant.isInfinite) return (constant < 0) ? neg_inf : pos_inf;
-    if (constant != 0.0) {
-      terms.add(Constant.forDouble(constant));
+    if (terms.length == 0 || constant.overwhelmsSums()) {
+      return constant;
     }
-    if (terms.length == 0) {
-      return zero;
-    } else if (terms.length == 1) {
+    if (constant != zero) {
+      terms.add(constant);
+    }
+    if (terms.length == 1) {
       return terms[0];
     }
     return Sum(terms);
@@ -211,7 +210,7 @@ class Sum extends Term {
   /// terms when the object is converted to a string.
   static int _sortOrder(Term a, Term b) {
     if (a is Constant) {
-      if (b is Constant) return a.value.compareTo(b.value);
+      if (b is Constant) return a.compareTo(b);
       return 1;
     }
     if (b is Constant) {

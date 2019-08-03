@@ -10,7 +10,7 @@ class Unknown extends Term {
 
   @override bool isNegative() => false;
   @override bool negatesGracefully() => false;
-  @override Term operator -() => Product(coefficient: -1.0, factors: [this]);
+  @override Term operator -() => Product(coefficient: neg_one, factors: [this]);
   @override bool equals(Term term) => term == this;
   @override Term addDirect(Term other, isNegated) {
     if (other is Product) {
@@ -21,7 +21,7 @@ class Unknown extends Term {
       if (other.equals(this)) {
         if (isNegated) return zero;
         return Product(
-          coefficient: 2.0,
+          coefficient: one + one,
           factors: [this],
         );
       }
