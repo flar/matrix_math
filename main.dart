@@ -7,9 +7,16 @@ import 'constants.dart';
 import 'vecmath3.dart';
 import 'vecmath4.dart';
 
+int padding = 1;
+
+void usage() {
+  print('usage: dart main.dart [rect_transform] [pick_ray] [math_test] [--nopad] [--padding N]');
+}
+
 void main(List<String> args) {
   bool foundOne = false;
-  for (var arg in args) {
+  for (int i = 0; i < args.length; i++) {
+    var arg = args[i];
     switch (arg) {
       case 'rect_transform':
         runRectTransforms();
@@ -23,13 +30,31 @@ void main(List<String> args) {
         testMath();
         foundOne = true;
         break;
+      case '--nopad':
+        padding = 0;
+        break;
+      case '--padding':
+        if (++i < args.length) {
+          try {
+            padding = int.parse(args[i]);
+          } catch(e) {
+            print('--padding requires numeric argument');
+            usage();
+            return;
+          }
+        } else {
+          print('No argument for --padding');
+          usage();
+          return;
+        }
+        break;
       default:
         print('Unrecognized arg ($arg) ignored');
         break;
     }
   }
   if (!foundOne) {
-    print('usage: dart main.dart [rect_transform] [pick_ray] [math_test]');
+    usage();
   }
 }
 
@@ -162,8 +187,10 @@ void show(List<List<Constant>> results, String operator) {
       columnWidths[c+1] = math.max(columnWidths[c+1], len);
     }
   }
-  for (int c = 0; c < columnWidths.length; c++) {
-    columnWidths[c] += 2;
+  if (padding > 0) {
+    for (int c = 0; c < columnWidths.length; c++) {
+      columnWidths[c] += padding * 2;
+    }
   }
   printRow(operator, all_values, columnWidths);
   List<String> dashes = [
